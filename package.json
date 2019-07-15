@@ -1,0 +1,14 @@
+{
+  "name": "purescript-react-basic-gen",
+  "version": "0.1.0",
+  "main": "index.js",
+  "license": "MIT",
+  "devDependencies": {
+    "tslint": "^5.18.0",
+    "typescript": "^3.5.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc -w"
+  }
+}
