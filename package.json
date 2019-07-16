@@ -10,10 +10,11 @@
   },
   "scripts": {
     "build": "tsc",
-    "build:watch": "tsc -w"
+    "build:watch": "tsc-watch --onSuccess \"node dist/src/index.js\""
   },
   "dependencies": {
     "@types/node": "^12.6.2",
-    "antd": "^3.20.3"
+    "antd": "^3.20.3",
+    "ts-morph": "^3.1.2"
   }
 }

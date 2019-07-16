@@ -1,117 +1,28 @@
-import * as ts from "typescript";
-import * as fs from "fs";
+import { Project } from "ts-morph";
 
-interface DocEntry {
-  name?: string;
-  fileName?: string;
-  documentation?: string;
-  type?: string;
-  constructors?: DocEntry[];
-  parameters?: DocEntry[];
-  returnType?: string;
-}
+const project = new Project({});
 
-/** Generate documentation for all classes in a set of .ts files */
-function generateDocumentation(
-  fileNames: string[],
-  options: ts.CompilerOptions
-): void {
+project.addExistingSourceFiles("samples/**/*.tsx");
 
-  console.log(fileNames);
+const directClassExportFile = project.getSourceFileOrThrow("samples/DirectClassExport.tsx");
 
-  // Build a program using the set of root file names in fileNames
-  let program = ts.createProgram(fileNames, options);
+const classes = directClassExportFile.getClasses();
 
-  // Get the checker, we will use it to find more about classes
-  let checker = program.getTypeChecker();
+const clazz = classes[0];
 
-  let output: DocEntry[] = [];
+// Component
 
-  // Visit every sourceFile in the program
-  for (const sourceFile of program.getSourceFiles()) {
-    if (!sourceFile.isDeclarationFile) {
-      console.log(sourceFile.getSourceFile().fileName);
+const baseType = clazz.getBaseTypes()[0];
 
-      // Walk the tree to search for classes
-      ts.forEachChild(sourceFile, visit);
-    }
-  }
+const baseName = baseType.getSymbolOrThrow().getFullyQualifiedName();
+console.log(baseName);
 
-  // print out the doc
-  fs.writeFileSync("classes.json", JSON.stringify(output, undefined, 4));
+const typeArgs0 = baseType.getTypeArguments()[0];
 
-  return;
+console.log(typeArgs0.getSymbolOrThrow().getEscapedName());
 
-  /** visit nodes finding exported classes */
-  function visit(node: ts.Node) {
-    // Only consider exported nodes
-    if (!isNodeExported(node)) {
-      return;
-    }
+const propsType = typeArgs0.getSymbolOrThrow().getDeclaredType();
 
-    if (ts.isClassDeclaration(node) && node.name) {
-      // This is a top level class, get its symbol
-      let symbol = checker.getSymbolAtLocation(node.name);
-      if (symbol) {
-        output.push(serializeClass(symbol));
-      }
-      // No need to walk any further, class expressions/inner declarations
-      // cannot be exported
-    } else if (ts.isModuleDeclaration(node)) {
-      // This is a namespace, visit its children
-      ts.forEachChild(node, visit);
-    }
-  }
-
-  /** Serialize a symbol into a json object */
-  function serializeSymbol(symbol: ts.Symbol): DocEntry {
-    return {
-      name: symbol.getName(),
-      documentation: ts.displayPartsToString(symbol.getDocumentationComment(undefined)),
-      type: checker.typeToString(
-        checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration!)
-      )
-    };
-  }
-
-  /** Serialize a class symbol information */
-  function serializeClass(symbol: ts.Symbol) {
-    let details = serializeSymbol(symbol);
-
-    // Get the construct signatures
-    let constructorType = checker.getTypeOfSymbolAtLocation(
-      symbol,
-      symbol.valueDeclaration!
-    );
-    details.constructors = constructorType
-      .getConstructSignatures()
-      .map(serializeSignature);
-    return details;
-  }
-
-  /** Serialize a signature (call or construct) */
-  function serializeSignature(signature: ts.Signature) {
-    return {
-      parameters: signature.parameters.map(serializeSymbol),
-      returnType: checker.typeToString(signature.getReturnType()),
-      documentation: ts.displayPartsToString(signature.getDocumentationComment(undefined))
-    };
-  }
-
-  /** True if this is visible outside this file, false otherwise */
-  function isNodeExported(node: ts.Node): boolean {
-    return (
-      (('_declarationBrand' in node) && ts.getCombinedModifierFlags(node) & ts.ModifierFlags.Export) !== 0 ||
-      (!!node.parent && node.parent.kind === ts.SyntaxKind.SourceFile)
-    );
-  }
-}
-
-console.log("Hello!!!");
-
-generateDocumentation(process.argv.slice(2), {
-  target: ts.ScriptTarget.ES5,
-  module: ts.ModuleKind.CommonJS
-});
-
-console.log("DONE!")
+const propsProperty0 = propsType.getProperties()[0];
+console.log(propsProperty0.getEscapedName());
+console.log(propsProperty0.getValueDeclarationOrThrow().getType().isString());
