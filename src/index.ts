@@ -1,30 +1,10 @@
 import { Project } from "ts-morph";
+import { findComponentsInSourceFile } from "./Scraper";
 
 const project = new Project({
-  compilerOptions: {
-    strictNullChecks: true
-  }
+  tsConfigFilePath: "./tsconfig.json"
 });
 
-const directClassExportFile = project.getSourceFileOrThrow("samples/DirectClassExport.tsx");
-
-const classes = directClassExportFile.getClasses();
-
-const clazz = classes[0];
-
-// Component
-
-const baseType = clazz.getBaseTypes()[0];
-
-const baseName = baseType.getSymbolOrThrow().getFullyQualifiedName();
-console.log(baseName);
-
-const typeArgs0 = baseType.getTypeArguments()[0];
-
-console.log(typeArgs0.getSymbolOrThrow().getEscapedName());
-
-const propsType = typeArgs0.getSymbolOrThrow().getDeclaredType();
-
-const propsProperty0 = propsType.getProperties()[0];
-console.log(propsProperty0.getEscapedName());
-console.log(propsProperty0.getValueDeclarationOrThrow().getType().isString());
+const sourceFile = project.addExistingSourceFile("node_modules/antd/lib/button/button.d.ts");
+const components = findComponentsInSourceFile(sourceFile);
+console.log(JSON.stringify(components, null, 2));
