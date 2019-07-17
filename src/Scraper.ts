@@ -19,14 +19,21 @@ export interface ComponentSpec {
 }
 
 export function findComponentsInProject(project: Project): ComponentSpec[] {
-  return project.getSourceFiles()
-    .flatMap(findComponentsInSourceFile);
+  return findComponentsInSourceFiles(project.getSourceFiles());
+}
+
+export function findComponentsInSourceFiles(
+  sourceFiles: SourceFile[]
+): ComponentSpec[] {
+  return sourceFiles
+    .flatMap((s) => s.getClasses())
+    .flatMap(findComponentsInClass);
 }
 
 export function findComponentsInSourceFile(
   sourceFile: SourceFile
 ): ComponentSpec[] {
-  return sourceFile.getClasses().flatMap(findComponentsInClass);
+  return findComponentsInSourceFiles([sourceFile]);
 }
 
 function findComponentsInClass(
