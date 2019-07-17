@@ -1,8 +1,10 @@
 import { Project } from "ts-morph";
 
-const project = new Project({});
-
-project.addExistingSourceFiles("samples/**/*.tsx");
+const project = new Project({
+  compilerOptions: {
+    strictNullChecks: true
+  }
+});
 
 const directClassExportFile = project.getSourceFileOrThrow("samples/DirectClassExport.tsx");
 
