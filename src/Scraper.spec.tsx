@@ -74,7 +74,7 @@ test('support basic prop types', () => {
   });
 });
 
-test('support note whether a prop is nullable', () => {
+test('note whether a prop is nullable', () => {
   expectSingleComponentInContent(
     `
     import * as React from 'react';
@@ -100,6 +100,28 @@ test('support note whether a prop is nullable', () => {
     }]
   });
 });
+
+test('support partial props', () => {
+  expectSingleComponentInContent(
+    `
+    import * as React from 'react';
+
+    interface MyProps {
+      foo: string
+    };
+
+    type Props = Partial<MyProps>;
+
+    export class TestC extends React.Component<Props, {}> {}`
+  ).toMatchObject({
+    name: "TestC",
+    props: [{
+      name: "foo",
+      isNullable: true,
+    }]
+  });
+});
+
 
 
 function findComponentsInContent(content: string): ComponentSpec[] {

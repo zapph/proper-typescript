@@ -1,4 +1,4 @@
-import { ClassDeclaration, Project, SourceFile, Symbol, Type } from "ts-morph";
+import { ClassDeclaration, Project, SourceFile, Symbol, Type, SymbolFlags } from "ts-morph";
 
 export enum PropType {
   Any = "any",
@@ -46,8 +46,10 @@ function findComponentsInClass(
     let props: PropSpec[] = [];
 
     if (propTypeArg) {
-
-      props = propTypeArg.getProperties().map(propertyToPropSpec);
+      props = propTypeArg.getProperties().map(
+        (p) =>
+          propertyToPropSpec(p, propTypeArg.getSymbol())
+      );
     }
 
     return [{
@@ -69,11 +71,20 @@ function isTypeReactComponent(t: Type): boolean {
   }
 }
 
-function propertyToPropSpec(p: Symbol): PropSpec {
+function propertyToPropSpec(p: Symbol, reference?: Symbol): PropSpec {
   let name = p.getEscapedName();
-  let vdec = p.getValueDeclarationOrThrow();
 
-  let typ = vdec.getType();
+  let vdec = p.getValueDeclaration();
+  let typ;
+  if (vdec) {
+    typ = vdec.getType();
+  } else {
+    if (reference && reference.getDeclarations()[0]) {
+      typ = p.getTypeAtLocation(reference.getDeclarations()[0]);
+    } else {
+      throw new Error(`Unable to find type for: ${name}`)
+    }
+  }
 
   let isNullable = typ.isNullable();
   if (isNullable) {
