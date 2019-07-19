@@ -142,7 +142,8 @@ test('support event handlers', () => {
     import * as React from 'react';
 
     interface Props {
-      onClick: (event: React.MouseEvent<HTMLElement, MouseEvent>) => void
+      onClick: (event: React.MouseEvent<HTMLElement, MouseEvent>) => void,
+      onClick2: React.MouseEventHandler<HTMLElement>
     };
 
     export class TestC extends React.Component<Props, {}> {}`
@@ -150,6 +151,11 @@ test('support event handlers', () => {
     name: "TestC",
     props: [{
       name: "onClick",
+      propSpec: {
+        propType: fnPropType([{ propType: eventPropType, isNullable: false }], { propType: voidPropType, isNullable: false })
+      }
+    }, {
+      name: "onClick2",
       propSpec: {
         propType: fnPropType([{ propType: eventPropType, isNullable: false }], { propType: voidPropType, isNullable: false })
       }

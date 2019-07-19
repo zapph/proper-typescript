@@ -165,7 +165,11 @@ function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol, name?: String): 
       propType = eventPropType;
     } else {
       let n = name || "unknown";
-      throw `Unknown propType for ${n}: ${typ.getText()} (Kind: ${decl.getKindName()})`
+      throw `Unknown propType for ${n}: ${typ.getText()} ` +
+      `(Kind: ${decl.getKindName()}) ` +
+      `(Source: ${decl.getSourceFile().getFilePath()} ` +
+      `Line: ${decl.getStartLineNumber()} ` +
+      `Col: ${decl.getStartLinePos()})`
     }
   }
 
@@ -177,9 +181,29 @@ function isTypeVoid(typ: Type<ts.Type>): boolean {
 }
 
 function isNodeSyntheticEvent(node: Node<ts.Node>): boolean {
-  return TypeGuards.isInterfaceDeclaration(node) &&
-    node.getBaseTypes().findIndex((t) => {
-      let sym = t.getSymbol()
-      return sym && sym.getFullyQualifiedName() == "React.SyntheticEvent";
-    }) >= 0;
+  let sym = node.getSymbol();
+  if (sym && isSymbolSyntheticEvent(sym)) {
+    return true;
+  } else if (TypeGuards.isTypeParameterDeclaration(node)) {
+    let constraint = node.getConstraint();
+
+    if (constraint) {
+      return isTypeSyntheticEvent(constraint.getType());
+    } else {
+      return false;
+    }
+  } else if (TypeGuards.isInterfaceDeclaration(node)) {
+    return node.getBaseTypes().findIndex(isTypeSyntheticEvent) >= 0;
+  } else {
+    return false;
+  }
+}
+
+function isTypeSyntheticEvent(t: Type): boolean {
+  let sym = t.getSymbol();
+  return typeof sym !== 'undefined' && isSymbolSyntheticEvent(sym);
+}
+
+function isSymbolSyntheticEvent(sym: Symbol): boolean {
+  return sym.getFullyQualifiedName() === "React.SyntheticEvent";
 }
