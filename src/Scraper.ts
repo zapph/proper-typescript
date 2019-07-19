@@ -1,21 +1,56 @@
-import { ClassDeclaration, Project, SourceFile, Symbol, Type, SymbolFlags } from "ts-morph";
+import { ClassDeclaration, Node, Project, SourceFile, Symbol, Type, TypeGuards } from "ts-morph";
+import ts from "typescript";
 
-export enum PropType {
-  Any = "any",
-  String = "string",
-  Number = "number",
-  Boolean = "boolean",
+export type PropType =
+  AnyPropType
+  | VoidPropType
+  | StringPropType
+  | NumberPropType
+  | BooleanPropType
+  | EventPropType
+  | FnPropType
+
+export type AnyPropType = { kind: "any" }
+export const anyPropType: PropType = { kind: "any" };
+
+export type VoidPropType = { kind: "void" }
+export const voidPropType: PropType = { kind: "void" }
+
+export type StringPropType = { kind: "string" }
+export const stringPropType: PropType = { kind: "string" }
+
+export type NumberPropType = { kind: "number" }
+export const numberPropType: PropType = { kind: "number" }
+
+export type BooleanPropType = { kind: "boolean" }
+export const booleanPropType: PropType = { kind: "boolean" }
+
+export type EventPropType = { kind: "event" }
+export const eventPropType: PropType = { kind: "event" }
+
+export type FnPropType = {
+  kind: "fn",
+  argTypes: PropSpec[],
+  returnType: PropSpec
+}
+
+export function fnPropType(argTypes: PropSpec[], returnType: PropSpec): PropType {
+  return { kind: "fn", argTypes, returnType };
+}
+
+export interface NamedPropSpec {
+  name: string,
+  propSpec: PropSpec
 }
 
 export interface PropSpec {
-  name: string,
   propType: PropType,
   isNullable: boolean
 }
 
 export interface ComponentSpec {
   name: string,
-  props: PropSpec[]
+  props: NamedPropSpec[]
 }
 
 export function findComponentsInProject(project: Project): ComponentSpec[] {
@@ -43,12 +78,12 @@ function findComponentsInClass(
 
   if (baseType) {
     let propTypeArg = baseType.getTypeArguments()[0];
-    let props: PropSpec[] = [];
+    let props: NamedPropSpec[] = [];
 
     if (propTypeArg) {
       props = propTypeArg.getProperties().map(
         (p) =>
-          propertyToPropSpec(p, propTypeArg.getSymbol())
+          symbolToNamedPropSpec(p, propTypeArg.getSymbol())
       );
     }
 
@@ -71,41 +106,79 @@ function isTypeReactComponent(t: Type): boolean {
   }
 }
 
-function propertyToPropSpec(p: Symbol, reference?: Symbol): PropSpec {
+function symbolToNamedPropSpec(p: Symbol, reference?: Symbol): NamedPropSpec {
   let name = p.getEscapedName();
+  let propSpec = symbolToPropSpec(p, reference);
 
-  let vdec = p.getValueDeclaration();
+  return {
+    name,
+    propSpec
+  };
+}
+
+function symbolToPropSpec(s: Symbol, reference?: Symbol): PropSpec {
+  let name = s.getEscapedName();
+  let vdec = s.getValueDeclaration();
   let typ;
   if (vdec) {
     typ = vdec.getType();
   } else {
     if (reference && reference.getDeclarations()[0]) {
-      typ = p.getTypeAtLocation(reference.getDeclarations()[0]);
+      typ = s.getTypeAtLocation(reference.getDeclarations()[0]);
     } else {
       throw new Error(`Unable to find type for: ${name}`)
     }
   }
 
+  return typeToPropSpec(typ, reference);
+}
+
+function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol): PropSpec {
   let isNullable = typ.isNullable();
   if (isNullable) {
     typ = typ.getNonNullableType();
   }
 
-  let propType = PropType.Any;
+  let propType: PropType;
 
-  if (typ.isString()) {
-    propType = PropType.String;
+  if (isTypeVoid(typ)) {
+    propType = voidPropType;
+  } else if (typ.isString()) {
+    propType = stringPropType;
   } else if (typ.isNumber()) {
-    propType = PropType.Number;
+    propType = numberPropType;
   } else if (typ.isBoolean()) {
-    propType = PropType.Boolean;
+    propType = booleanPropType
   } else {
-    throw `Unsupported propType for ${name}: ${typ.getText()}`
+    // Symbol
+    let sym = typ.getSymbolOrThrow();
+
+    // Node
+    let decl = sym.getDeclarations()[0];
+
+    if (TypeGuards.isFunctionTypeNode(decl)) {
+      let paramPropSpec = decl.getParameters().map((p) => typeToPropSpec(p.getType(), reference));
+      let returnPropSpec = typeToPropSpec(decl.getReturnType(), reference);
+
+      propType = fnPropType(paramPropSpec, returnPropSpec);
+    } else if (isNodeSyntheticEvent(decl)) {
+      propType = eventPropType;
+    } else {
+      throw `Unknown propType for ${name}: ${typ.getText()}`
+    }
   }
 
-  return {
-    name,
-    propType,
-    isNullable
-  };
+  return { propType, isNullable };
+}
+
+function isTypeVoid(typ: Type<ts.Type>): boolean {
+  return (typ.getFlags() & ts.TypeFlags.VoidLike) != 0;
+}
+
+function isNodeSyntheticEvent(node: Node<ts.Node>): boolean {
+  return TypeGuards.isInterfaceDeclaration(node) &&
+    node.getBaseTypes().findIndex((t) => {
+      let sym = t.getSymbol()
+      return sym && sym.getFullyQualifiedName() == "React.SyntheticEvent";
+    }) >= 0;
 }

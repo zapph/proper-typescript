@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, PropType, findComponentsInSourceFile } from './Scraper';
+import { ComponentSpec, findComponentsInSourceFile, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType } from './Scraper';
 
 test('ignore files without react components', () => {
   expectComponentsInContent("").toStrictEqual([])
@@ -63,13 +63,19 @@ test('support basic prop types', () => {
     name: "TestC",
     props: [{
       name: "foo",
-      propType: PropType.String,
+      propSpec: {
+        propType: stringPropType,
+      }
     }, {
       name: "bar",
-      propType: PropType.Number,
+      propSpec: {
+        propType: numberPropType,
+      }
     }, {
       name: "baz",
-      propType: PropType.Boolean,
+      propSpec: {
+        propType: booleanPropType,
+      }
     }]
   });
 });
@@ -90,13 +96,19 @@ test('note whether a prop is nullable', () => {
     name: "TestC",
     props: [{
       name: "foo",
-      isNullable: false,
+      propSpec: {
+        isNullable: false,
+      }
     }, {
       name: "bar",
-      isNullable: true,
+      propSpec: {
+        isNullable: true,
+      }
     }, {
       name: "baz",
-      isNullable: true,
+      propSpec: {
+        isNullable: true,
+      }
     }]
   });
 });
@@ -117,12 +129,33 @@ test('support partial props', () => {
     name: "TestC",
     props: [{
       name: "foo",
-      isNullable: true,
+      propSpec: {
+        isNullable: true,
+      }
     }]
   });
 });
 
+test('support event handlers', () => {
+  expectSingleComponentInContent(
+    `
+    import * as React from 'react';
 
+    interface Props {
+      onClick: (event: React.MouseEvent<HTMLElement, MouseEvent>) => void
+    };
+
+    export class TestC extends React.Component<Props, {}> {}`
+  ).toMatchObject({
+    name: "TestC",
+    props: [{
+      name: "onClick",
+      propSpec: {
+        propType: fnPropType([{ propType: eventPropType, isNullable: false }], { propType: voidPropType, isNullable: false })
+      }
+    }]
+  });
+});
 
 function findComponentsInContent(content: string): ComponentSpec[] {
   const project = new Project({
