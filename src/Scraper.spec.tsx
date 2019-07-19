@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, findComponentsInSourceFile, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType } from './Scraper';
+import { ComponentSpec, findComponentsInSourceFile, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType } from './Scraper';
 
 test('ignore files without react components', () => {
   expectComponentsInContent("").toStrictEqual([])
@@ -162,6 +162,39 @@ test('support event handlers', () => {
     }]
   });
 });
+
+test('support literal types', () => {
+  expectSingleComponentInContent(
+    `
+    import * as React from 'react';
+
+    interface Props {
+      lit1: 1,
+      litFoo: "foo",
+      litTrue: true,
+    };
+
+    export class TestC extends React.Component<Props, {}> {}`
+  ).toMatchObject({
+    name: "TestC",
+    props: [{
+      name: "lit1",
+      propSpec: {
+        propType: literalPropType(1)
+      }
+    }, {
+      name: "litFoo",
+      propSpec: {
+        propType: literalPropType("foo")
+      }
+    }, {
+      name: "litTrue",
+      propSpec: {
+        propType: literalPropType(true)
+      }
+    }]
+  });
+})
 
 function findComponentsInContent(content: string): ComponentSpec[] {
   const project = new Project({

@@ -8,6 +8,7 @@ export type PropType =
   | NumberPropType
   | BooleanPropType
   | EventPropType
+  | LiteralPropType
   | FnPropType
 
 export type AnyPropType = { kind: "any" }
@@ -27,6 +28,17 @@ export const booleanPropType: PropType = { kind: "boolean" }
 
 export type EventPropType = { kind: "event" }
 export const eventPropType: PropType = { kind: "event" }
+
+export type LiteralValue = string | number | ts.PseudoBigInt | boolean
+
+export type LiteralPropType = { kind: "literal", value: LiteralValue }
+
+export function literalPropType(value: LiteralValue): PropType {
+  return {
+    kind: "literal",
+    value
+  };
+}
 
 export type FnPropType = {
   kind: "fn",
@@ -134,6 +146,7 @@ function symbolToPropSpec(s: Symbol, reference?: Symbol): PropSpec {
 }
 
 function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol, name?: String): PropSpec {
+  let n = name || "unknown";
   let isNullable = typ.isNullable();
   if (isNullable) {
     typ = typ.getNonNullableType();
@@ -149,27 +162,47 @@ function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol, name?: String): 
     propType = numberPropType;
   } else if (typ.isBoolean()) {
     propType = booleanPropType
+
+  } else if (typ.compilerType.isLiteral()) {
+    // Does not inclue boolean -- see https://github.com/Microsoft/TypeScript/issues/26075
+    let value = typ.compilerType.value;
+    propType = literalPropType(value);
+  } else if (typ.isBooleanLiteral()) {
+    // TODO look for a better way for this
+    propType = literalPropType(typ.getText() === "true");
   } else {
     // Symbol
-    let sym = typ.getSymbolOrThrow();
+    let sym = typ.getSymbol();
 
     // Node
-    let decl = sym.getDeclarations()[0];
+    let decl: Node | undefined;
+    if (sym) {
+      decl = sym.getDeclarations()[0];
+    }
 
-    if (TypeGuards.isSignaturedDeclaration(decl)) {
-      let paramPropSpec = decl.getParameters().map((p) => typeToPropSpec(p.getType(), reference, p.getName()));
-      let returnPropSpec = typeToPropSpec(decl.getReturnType(), reference);
+    if (typeof decl !== 'undefined') {
+      if (TypeGuards.isSignaturedDeclaration(decl)) {
+        let paramPropSpec = decl.getParameters().map((p) => typeToPropSpec(p.getType(), reference, p.getName()));
+        let returnPropSpec = typeToPropSpec(decl.getReturnType(), reference);
 
-      propType = fnPropType(paramPropSpec, returnPropSpec);
-    } else if (isNodeSyntheticEvent(decl)) {
-      propType = eventPropType;
+        propType = fnPropType(paramPropSpec, returnPropSpec);
+      } else if (typeof decl !== 'undefined' && isNodeSyntheticEvent(decl)) {
+        propType = eventPropType;
+      } else {
+        throw `Unknown propType for ${n}: ${typ.getText()} ` +
+        `(Kind: ${decl.getKindName()}) ` +
+        `(Source: ${decl.getSourceFile().getFilePath()} ` +
+        `Line: ${decl.getStartLineNumber()} ` +
+        `Col: ${decl.getStartLinePos()})`
+      }
     } else {
-      let n = name || "unknown";
-      throw `Unknown propType for ${n}: ${typ.getText()} ` +
-      `(Kind: ${decl.getKindName()}) ` +
-      `(Source: ${decl.getSourceFile().getFilePath()} ` +
-      `Line: ${decl.getStartLineNumber()} ` +
-      `Col: ${decl.getStartLinePos()})`
+      let symText;
+      if (typeof sym !== 'undefined') {
+        symText = `Symbol: sym.getName()`;
+      } else {
+        symText = "No Symbol";
+      }
+      throw `Unknown propType for ${n}: ${typ.getText()} (${symText}) (Missing decl)`;
     }
   }
 
