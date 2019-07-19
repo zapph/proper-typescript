@@ -156,7 +156,7 @@ function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol, name?: String): 
     // Node
     let decl = sym.getDeclarations()[0];
 
-    if (TypeGuards.isFunctionTypeNode(decl)) {
+    if (TypeGuards.isSignaturedDeclaration(decl)) {
       let paramPropSpec = decl.getParameters().map((p) => typeToPropSpec(p.getType(), reference, p.getName()));
       let returnPropSpec = typeToPropSpec(decl.getReturnType(), reference);
 
