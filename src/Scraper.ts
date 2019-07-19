@@ -130,10 +130,10 @@ function symbolToPropSpec(s: Symbol, reference?: Symbol): PropSpec {
     }
   }
 
-  return typeToPropSpec(typ, reference);
+  return typeToPropSpec(typ, reference, name);
 }
 
-function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol): PropSpec {
+function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol, name?: String): PropSpec {
   let isNullable = typ.isNullable();
   if (isNullable) {
     typ = typ.getNonNullableType();
@@ -157,14 +157,15 @@ function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol): PropSpec {
     let decl = sym.getDeclarations()[0];
 
     if (TypeGuards.isFunctionTypeNode(decl)) {
-      let paramPropSpec = decl.getParameters().map((p) => typeToPropSpec(p.getType(), reference));
+      let paramPropSpec = decl.getParameters().map((p) => typeToPropSpec(p.getType(), reference, p.getName()));
       let returnPropSpec = typeToPropSpec(decl.getReturnType(), reference);
 
       propType = fnPropType(paramPropSpec, returnPropSpec);
     } else if (isNodeSyntheticEvent(decl)) {
       propType = eventPropType;
     } else {
-      throw `Unknown propType for ${name}: ${typ.getText()}`
+      let n = name || "unknown";
+      throw `Unknown propType for ${n}: ${typ.getText()}`
     }
   }
 
