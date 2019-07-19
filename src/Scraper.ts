@@ -9,6 +9,7 @@ export type PropType =
   | BooleanPropType
   | EventPropType
   | LiteralPropType
+  | UnionPropType
   | FnPropType
 
 export type AnyPropType = { kind: "any" }
@@ -38,6 +39,12 @@ export function literalPropType(value: LiteralValue): PropType {
     kind: "literal",
     value
   };
+}
+
+export type UnionPropType = { kind: "union", options: PropType[] }
+
+export function unionPropType(options: PropType[]): PropType {
+  return { kind: "union", options };
 }
 
 export type FnPropType = {
@@ -170,6 +177,10 @@ function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol, name?: String): 
   } else if (typ.isBooleanLiteral()) {
     // TODO look for a better way for this
     propType = literalPropType(typ.getText() === "true");
+  } else if (typ.isUnion()) {
+    let options: PropType[] = typ.getUnionTypes().map((t) => typeToPropSpec(t, reference).propType);
+
+    propType = unionPropType(options);
   } else {
     // Symbol
     let sym = typ.getSymbol();

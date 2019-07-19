@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, findComponentsInSourceFile, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType } from './Scraper';
+import { ComponentSpec, findComponentsInSourceFile, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType } from './Scraper';
 
 test('ignore files without react components', () => {
   expectComponentsInContent("").toStrictEqual([])
@@ -194,7 +194,42 @@ test('support literal types', () => {
       }
     }]
   });
-})
+});
+
+test('support union', () => {
+  expectSingleComponentInContent(
+    `
+    import * as React from 'react';
+
+    interface Props {
+      stringOrBoolean: string | false | true,
+      fooOrOne: "foo" | 1,
+      fooOrBarOrNumber: "foo" | "bar" | number,
+    };
+
+    export class TestC extends React.Component<Props, {}> {}`
+  ).toMatchObject({
+    name: "TestC",
+    props: [{
+      name: "stringOrBoolean",
+      propSpec: {
+        // boolean ends up as literal true or false
+        propType: unionPropType([stringPropType, literalPropType(false), literalPropType(true)])
+      }
+    }, {
+      name: "fooOrOne",
+      propSpec: {
+        propType: unionPropType([literalPropType("foo"), literalPropType(1)])
+      }
+    }, {
+      name: "fooOrBarOrNumber",
+      propSpec: {
+        // Manually switched
+        propType: unionPropType([numberPropType, literalPropType("foo"), literalPropType("bar")])
+      }
+    }]
+  });
+});
 
 function findComponentsInContent(content: string): ComponentSpec[] {
   const project = new Project({
