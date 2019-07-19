@@ -165,7 +165,7 @@ function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol, name?: String): 
       propType = eventPropType;
     } else {
       let n = name || "unknown";
-      throw `Unknown propType for ${n}: ${typ.getText()}`
+      throw `Unknown propType for ${n}: ${typ.getText()} (Kind: ${decl.getKindName()})`
     }
   }
 
