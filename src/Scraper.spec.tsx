@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, findComponentsInSourceFile, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType } from './Scraper';
+import { ComponentSpec, findComponentsInSourceFile, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, objectPropType, reactElementPropType } from './Scraper';
 
 test('ignore files without react components', () => {
   expectComponentsInContent("").toStrictEqual([])
@@ -55,7 +55,8 @@ test('support basic prop types', () => {
     interface Props {
       foo: string,
       bar: number,
-      baz: boolean
+      baz: boolean,
+      reactElement: React.ReactElement
     };
 
     export class TestC extends React.Component<Props, {}> {}`
@@ -75,6 +76,11 @@ test('support basic prop types', () => {
       name: "baz",
       propSpec: {
         propType: booleanPropType,
+      }
+    }, {
+      name: "reactElement",
+      propSpec: {
+        propType: reactElementPropType,
       }
     }]
   });
@@ -135,6 +141,8 @@ test('support partial props', () => {
     }]
   });
 });
+
+test
 
 test('support event handlers', () => {
   expectSingleComponentInContent(
@@ -230,6 +238,93 @@ test('support union', () => {
     }]
   });
 });
+
+test('support object types', () => {
+  expectSingleComponentInContent(
+    `
+    import * as React from 'react';
+
+    interface Props {
+      foo: { bar: number, baz?: string, qux: { quux: number } },
+      empty: {}
+    };
+
+    export class TestC extends React.Component<Props, {}> {}`
+  ).toMatchObject({
+    name: "TestC",
+    props: [{
+      name: "foo",
+      propSpec: {
+        propType:
+          objectPropType([{
+            name: "bar",
+            propSpec: { propType: numberPropType, isNullable: false }
+          }, {
+            name: "baz",
+            propSpec: { propType: stringPropType, isNullable: true }
+          }, {
+            name: "qux",
+            propSpec: {
+              propType: objectPropType([{
+                name: "quux",
+                propSpec: { propType: numberPropType, isNullable: false }
+              }]),
+              isNullable: false
+            }
+          }])
+      }
+    }, {
+      name: "empty",
+      propSpec: {
+        propType: objectPropType([])
+      }
+    }]
+  });
+});
+
+test('support object types', () => {
+  expectSingleComponentInContent(
+    `
+    import * as React from 'react';
+
+    interface Props {
+      foo: { bar: number, baz?: string, qux: { quux: number } },
+      empty: {}
+    };
+
+    export class TestC extends React.Component<Props, {}> {}`
+  ).toMatchObject({
+    name: "TestC",
+    props: [{
+      name: "foo",
+      propSpec: {
+        propType:
+          objectPropType([{
+            name: "bar",
+            propSpec: { propType: numberPropType, isNullable: false }
+          }, {
+            name: "baz",
+            propSpec: { propType: stringPropType, isNullable: true }
+          }, {
+            name: "qux",
+            propSpec: {
+              propType: objectPropType([{
+                name: "quux",
+                propSpec: { propType: numberPropType, isNullable: false }
+              }]),
+              isNullable: false
+            }
+          }])
+      }
+    }, {
+      name: "empty",
+      propSpec: {
+        propType: objectPropType([])
+      }
+    }]
+  });
+});
+
 
 function findComponentsInContent(content: string): ComponentSpec[] {
   const project = new Project({

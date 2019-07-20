@@ -7,9 +7,11 @@ export type PropType =
   | StringPropType
   | NumberPropType
   | BooleanPropType
+  | ReactElementPropType
   | EventPropType
   | LiteralPropType
   | UnionPropType
+  | ObjectPropType
   | FnPropType
 
 export type AnyPropType = { kind: "any" }
@@ -27,6 +29,9 @@ export const numberPropType: PropType = { kind: "number" }
 export type BooleanPropType = { kind: "boolean" }
 export const booleanPropType: PropType = { kind: "boolean" }
 
+export type ReactElementPropType = { kind: "reactElement" }
+export const reactElementPropType: PropType = { kind: "reactElement" }
+
 export type EventPropType = { kind: "event" }
 export const eventPropType: PropType = { kind: "event" }
 
@@ -39,6 +44,12 @@ export function literalPropType(value: LiteralValue): PropType {
     kind: "literal",
     value
   };
+}
+
+export type ObjectPropType = { kind: "object", props: NamedPropSpec[] }
+
+export function objectPropType(props: NamedPropSpec[]): PropType {
+  return { kind: "object", props };
 }
 
 export type UnionPropType = { kind: "union", options: PropType[] }
@@ -149,7 +160,8 @@ function symbolToPropSpec(s: Symbol, reference?: Symbol): PropSpec {
     }
   }
 
-  return typeToPropSpec(typ, reference, name);
+  let pspec = typeToPropSpec(typ, reference, name);
+  return pspec;
 }
 
 function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol, name?: String): PropSpec {
@@ -191,14 +203,19 @@ function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol, name?: String): 
       decl = sym.getDeclarations()[0];
     }
 
-    if (typeof decl !== 'undefined') {
-      if (TypeGuards.isSignaturedDeclaration(decl)) {
+    if (typeof decl !== "undefined") {
+      let knownPropType = getKnownPropTypeFromNode(decl);
+
+      if (typeof knownPropType !== "undefined") {
+        propType = knownPropType;
+      } else if (TypeGuards.isSignaturedDeclaration(decl)) {
         let paramPropSpec = decl.getParameters().map((p) => typeToPropSpec(p.getType(), reference, p.getName()));
         let returnPropSpec = typeToPropSpec(decl.getReturnType(), reference);
 
         propType = fnPropType(paramPropSpec, returnPropSpec);
-      } else if (typeof decl !== 'undefined' && isNodeSyntheticEvent(decl)) {
-        propType = eventPropType;
+      } else if (typ.isObject()) {
+        // Check of object goes here since fucntions are detected as objects as well
+        propType = objectPropType(typ.getProperties().map((p) => symbolToNamedPropSpec(p, reference)));
       } else {
         throw `Unknown propType for ${n}: ${typ.getText()} ` +
         `(Kind: ${decl.getKindName()}) ` +
@@ -206,6 +223,9 @@ function typeToPropSpec(typ: Type<ts.Type>, reference?: Symbol, name?: String): 
         `Line: ${decl.getStartLineNumber()} ` +
         `Col: ${decl.getStartLinePos()})`
       }
+    } else if (typ.isObject()) {
+      // TODO Remove this duplication later on
+      propType = objectPropType(typ.getProperties().map((p) => symbolToNamedPropSpec(p, reference)));
     } else {
       let symText;
       if (typeof sym !== 'undefined') {
@@ -224,30 +244,49 @@ function isTypeVoid(typ: Type<ts.Type>): boolean {
   return (typ.getFlags() & ts.TypeFlags.VoidLike) != 0;
 }
 
-function isNodeSyntheticEvent(node: Node<ts.Node>): boolean {
+const knownSymbolPropTypes: { [name: string]: PropType } = {
+  "React.SyntheticEvent": eventPropType,
+  "React.ReactElement": reactElementPropType
+};
+
+function getKnownPropTypeFromNode(node: Node<ts.Node>): PropType | undefined {
   let sym = node.getSymbol();
-  if (sym && isSymbolSyntheticEvent(sym)) {
-    return true;
+  let p: PropType | undefined;
+  if (sym) {
+    p = getKnownPropTypeFromSymbol(sym);
+  }
+
+  if (typeof p !== "undefined") {
+    return p;
   } else if (TypeGuards.isTypeParameterDeclaration(node)) {
     let constraint = node.getConstraint();
 
     if (constraint) {
-      return isTypeSyntheticEvent(constraint.getType());
+      try {
+        return getKnownPropTypeFromType(constraint.getType());
+      } catch (e) {
+        return undefined;
+      }
     } else {
-      return false;
+      return undefined;
     }
   } else if (TypeGuards.isInterfaceDeclaration(node)) {
-    return node.getBaseTypes().findIndex(isTypeSyntheticEvent) >= 0;
-  } else {
-    return false;
+    node.getBaseTypes().forEach((t) => {
+      if (typeof p === "undefined") {
+        p = getKnownPropTypeFromType(t)
+      }
+    });
+    return p;
   }
 }
 
-function isTypeSyntheticEvent(t: Type): boolean {
+function getKnownPropTypeFromType(t: Type): PropType | undefined {
   let sym = t.getSymbol();
-  return typeof sym !== 'undefined' && isSymbolSyntheticEvent(sym);
+  if (typeof sym !== 'undefined') {
+    return getKnownPropTypeFromSymbol(sym);
+  }
 }
 
-function isSymbolSyntheticEvent(sym: Symbol): boolean {
-  return sym.getFullyQualifiedName() === "React.SyntheticEvent";
+function getKnownPropTypeFromSymbol(sym: Symbol): PropType | undefined {
+  return knownSymbolPropTypes[sym.getFullyQualifiedName()];
 }
