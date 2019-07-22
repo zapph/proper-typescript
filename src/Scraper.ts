@@ -14,6 +14,7 @@ export type PropType =
   | LiteralPropType
   | UnionPropType
   | ObjectPropType
+  | ArrayPropType
   | FnPropType
 
 export type AnyPropType = { kind: "any" }
@@ -58,6 +59,12 @@ export type UnionPropType = { kind: "union", options: PropType[] }
 
 export function unionPropType(options: PropType[]): PropType {
   return { kind: "union", options };
+}
+
+export type ArrayPropType = { kind: "array", elementPropType: PropType }
+
+export function arrayPropType(elementPropType: PropType): PropType {
+  return { kind: "array", elementPropType };
 }
 
 export type FnPropType = {
@@ -220,11 +227,17 @@ export class Finder {
       let returnPropSpec = this.typeToPropSpec(decl.getReturnType(), reference);
 
       propType = fnPropType(paramPropSpec, returnPropSpec);
+    } else if (typ.isArray()) {
+      let elementType = typ.getArrayElementType();
+      if (typeof elementType !== "undefined") {
+        let elementPropType =
+          this.typeToPropSpec(elementType, reference, name).propType;
+        propType = arrayPropType(elementPropType);
+      } else {
+        throw "Unknown array prop type";
+      }
     } else if (typ.isObject()) {
       // Check of object goes here since fucntions are detected as objects as well
-      propType = objectPropType(typ.getProperties().map((p) => this.symbolToNamedPropSpec(p, reference)));
-    } else if (typ.isObject()) {
-      // TODO Remove this duplication later on
       propType = objectPropType(typ.getProperties().map((p) => this.symbolToNamedPropSpec(p, reference)));
     } else if (typ.isUnion()) {
       try {
