@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, findComponentsInSourceFile, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, objectPropType, reactElementPropType } from './Scraper';
+import { ComponentSpec, Finder, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, objectPropType, reactElementPropType } from './Scraper';
 
 test('ignore files without react components', () => {
   expectComponentsInContent("").toStrictEqual([])
@@ -334,8 +334,9 @@ function findComponentsInContent(content: string): ComponentSpec[] {
   });
 
   const sourceFile = project.createSourceFile("test/MyClass.tsx", content);
+  const finder = new Finder();
 
-  return findComponentsInSourceFile(sourceFile);
+  return finder.findComponentsInSourceFile(sourceFile);
 }
 
 function expectComponentsInContent(content: string): jest.Matchers<ComponentSpec[]> {
