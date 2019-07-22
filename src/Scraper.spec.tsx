@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, Finder, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, objectPropType, reactElementPropType, arrayPropType } from './Scraper';
+import { ComponentSpec, Finder, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, objectPropType, reactElementPropType, arrayPropType, reactNodePropType } from './Scraper';
 
 test('ignore files without react components', () => {
   expectComponentsInContent("").toStrictEqual([])
@@ -56,7 +56,8 @@ test('support basic prop types', () => {
       foo: string,
       bar: number,
       baz: boolean,
-      reactElement: React.ReactElement
+      reactElement: React.ReactElement,
+      reactNode: React.ReactNode,
     };
 
     export class TestC extends React.Component<Props, {}> {}`
@@ -81,6 +82,11 @@ test('support basic prop types', () => {
       name: "reactElement",
       propSpec: {
         propType: reactElementPropType,
+      }
+    }, {
+      name: "reactNode",
+      propSpec: {
+        propType: reactNodePropType,
       }
     }]
   });

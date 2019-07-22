@@ -11,6 +11,7 @@ export type PropType =
   | BooleanPropType
   | ReactElementPropType
   | EventPropType
+  | ReactNodePropType
   | LiteralPropType
   | UnionPropType
   | ObjectPropType
@@ -34,6 +35,9 @@ export const booleanPropType: PropType = { kind: "boolean" }
 
 export type ReactElementPropType = { kind: "reactElement" }
 export const reactElementPropType: PropType = { kind: "reactElement" }
+
+export type ReactNodePropType = { kind: "reactNode" }
+export const reactNodePropType: PropType = { kind: "reactNode" }
 
 export type EventPropType = { kind: "event" }
 export const eventPropType: PropType = { kind: "event" }
