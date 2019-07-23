@@ -12,23 +12,20 @@ test('ignore non react component classes', () => {
 
 test('find react component with direct props', () => {
   expectSingleComponentInContent(
-    `import * as React from 'react';
-     export class TestC extends React.Component<{foo: string}, {}> {}`
+    `export class TestC extends React.Component<{foo: string}, {}> {}`
   );
 });
 
 test('find react component with aliased props', () => {
   expectSingleComponentInContent(
-    `import * as React from 'react';
-     type Props = { foo: string };
+    `type Props = { foo: string };
      export class TestC extends React.Component<Props, {}> {}`
   );
 });
 
 test('find react component with interfaced props', () => {
   expectSingleComponentInContent(
-    `import * as React from 'react';
-     interface Props { foo: string };
+    `interface Props { foo: string };
      export class TestC extends React.Component<Props, {}> {}`
   );
 });
@@ -42,22 +39,21 @@ test('find react component with differently imported react', () => {
 
 test('find react component name', () => {
   expectSingleComponentInContent(
-    `import * as React from 'react';
-     export class TestC extends React.Component<{}, {}> {}`
+    `export class TestC extends React.Component<{}, {}> {}`
   ).toMatchObject({ name: "TestC" });
 });
 
 test('support basic prop types', () => {
   expectSingleComponentInContent(
     `
-    import * as React from 'react';
-
     interface Props {
       foo: string,
       bar: number,
       baz: boolean,
       reactElement: React.ReactElement,
       reactNode: React.ReactNode,
+      syntheticEvent: React.SyntheticEvent,
+      mouseEvent: React.MouseEvent<Element, MouseEvent>,
     };
 
     export class TestC extends React.Component<Props, {}> {}`
@@ -87,6 +83,16 @@ test('support basic prop types', () => {
       name: "reactNode",
       propSpec: {
         propType: reactNodePropType,
+      }
+    }, {
+      name: "syntheticEvent",
+      propSpec: {
+        propType: eventPropType,
+      }
+    }, {
+      name: "mouseEvent",
+      propSpec: {
+        propType: eventPropType,
       }
     }]
   });
@@ -131,7 +137,7 @@ test('support partial props', () => {
     import * as React from 'react';
 
     interface MyProps {
-      foo: string
+      fooPartial: string
     };
 
     type Props = Partial<MyProps>;
@@ -140,15 +146,13 @@ test('support partial props', () => {
   ).toMatchObject({
     name: "TestC",
     props: [{
-      name: "foo",
+      name: "fooPartial",
       propSpec: {
         isNullable: true,
       }
     }]
   });
 });
-
-test
 
 test('support event handlers', () => {
   expectSingleComponentInContent(
@@ -251,7 +255,7 @@ test('support object types', () => {
     import * as React from 'react';
 
     interface Props {
-      foo: { bar: number, baz?: string, qux: { quux: number } },
+      obj: { bar: number, baz?: string, qux: { quux: number } },
       empty: {}
     };
 
@@ -259,7 +263,7 @@ test('support object types', () => {
   ).toMatchObject({
     name: "TestC",
     props: [{
-      name: "foo",
+      name: "obj",
       propSpec: {
         propType:
           objectPropType([{
@@ -286,50 +290,7 @@ test('support object types', () => {
       }
     }]
   });
-});
-
-test('support object types', () => {
-  expectSingleComponentInContent(
-    `
-    import * as React from 'react';
-
-    interface Props {
-      foo: { bar: number, baz?: string, qux: { quux: number } },
-      empty: {}
-    };
-
-    export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject({
-    name: "TestC",
-    props: [{
-      name: "foo",
-      propSpec: {
-        propType:
-          objectPropType([{
-            name: "bar",
-            propSpec: { propType: numberPropType, isNullable: false }
-          }, {
-            name: "baz",
-            propSpec: { propType: stringPropType, isNullable: true }
-          }, {
-            name: "qux",
-            propSpec: {
-              propType: objectPropType([{
-                name: "quux",
-                propSpec: { propType: numberPropType, isNullable: false }
-              }]),
-              isNullable: false
-            }
-          }])
-      }
-    }, {
-      name: "empty",
-      propSpec: {
-        propType: objectPropType([])
-      }
-    }]
-  });
-});
+});;
 
 test('support array types', () => {
   expectSingleComponentInContent(

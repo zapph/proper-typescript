@@ -1,4 +1,4 @@
-import { ClassDeclaration, Node, Project, SourceFile, Symbol, Type, TypeGuards } from "ts-morph";
+import { ClassDeclaration, Node, Project, SourceFile, Symbol, Type, TypeGuards, PropertySignature } from "ts-morph";
 import ts from "typescript";
 
 // PropTypes
@@ -101,7 +101,9 @@ export interface ComponentSpec {
 export class Finder {
   knownSymbolPropTypes: { [name: string]: PropType } = {
     "React.SyntheticEvent": eventPropType,
-    "React.ReactElement": reactElementPropType
+    "React.MouseEvent": eventPropType, // TODO make this generic
+    "React.ReactElement": reactElementPropType,
+    "React.ReactNode": reactNodePropType
   };
 
   findComponentsInProject = (project: Project): ComponentSpec[] => {
@@ -131,11 +133,11 @@ export class Finder {
       let propTypeArg = baseType.getTypeArguments()[0];
       let props: NamedPropSpec[] = [];
 
+      let reference = propTypeArg.getSymbolOrThrow().getDeclarations()[0];
       if (propTypeArg) {
-        props = propTypeArg.getProperties().map(
-          (p) =>
-            this.symbolToNamedPropSpec(p, propTypeArg.getSymbol())
-        );
+        props = propTypeArg
+          .getProperties()
+          .map((s) => this.propertyToNamedSpec(s, reference));
       }
 
       return [{
@@ -147,69 +149,49 @@ export class Finder {
     }
   }
 
-
   isTypeReactComponent = (t: Type): boolean => {
     let sym = t.getSymbol();
 
     if (sym) {
       return sym.getFullyQualifiedName() === "React.Component";
     } else {
-      return false;
+      return t.getBaseTypes().findIndex(this.isTypeReactComponent) >= 0;
     }
   }
 
-  symbolToNamedPropSpec = (p: Symbol, reference?: Symbol): NamedPropSpec => {
-    let name = p.getEscapedName();
-    let propSpec = this.symbolToPropSpec(p, reference);
+  propertyToNamedSpec = (s: Symbol, reference: Node): NamedPropSpec => {
+    let name = s.getName();
+    let typ = s.getTypeAtLocation(reference);
+    let propSpec = this.typeToPropSpec(typ, reference);
 
-    return {
-      name,
-      propSpec
-    };
+    return { name, propSpec };
   }
 
-  symbolToPropSpec = (s: Symbol, reference?: Symbol): PropSpec => {
-    let name = s.getEscapedName();
-    let vdec = s.getValueDeclaration();
-    let typ;
-    if (vdec) {
-      typ = vdec.getType();
-    } else {
-      if (reference && reference.getDeclarations()[0]) {
-        typ = s.getTypeAtLocation(reference.getDeclarations()[0]);
-      } else {
-        throw new Error(`Unable to find type for: ${name}`)
-      }
-    }
+  typeToPropSpec = (typ: Type, reference: Node): PropSpec => {
+    let sym = typ.getSymbol() || typ.getAliasSymbol();
 
-    let pspec = this.typeToPropSpec(typ, reference, name);
-    return pspec;
-  }
-
-  typeToPropSpec = (typ: Type<ts.Type>, reference?: Symbol, name?: String): PropSpec => {
-    let n = name || "unknown";
     let isNullable = typ.isNullable();
+
     if (isNullable) {
       typ = typ.getNonNullableType();
     }
-
-    // Symbol
-    let sym = typ.getSymbol();
-
-    // Node
-    let decl: Node | undefined;
     let knownPropType: PropType | undefined;
     if (typeof sym !== "undefined") {
-      decl = sym.getDeclarations()[0];
+      knownPropType = this.knownSymbolPropTypes[sym.getFullyQualifiedName()];
+    }
 
-      if (typeof decl !== "undefined") {
-        knownPropType = this.getKnownPropTypeFromNode(decl);
-      }
+    let fnPropType: PropType | undefined;
+    if (typeof sym !== "undefined") {
+      fnPropType = this.symbolToFunctionPropType(sym, reference);
     }
 
     let propType: PropType;
 
-    if (this.isTypeVoid(typ)) {
+    if (typeof knownPropType !== "undefined") {
+      propType = knownPropType;
+    } else if (typeof fnPropType !== "undefined") {
+      propType = fnPropType;
+    } else if (this.isTypeVoid(typ)) {
       propType = voidPropType;
     } else if (typ.isString()) {
       propType = stringPropType;
@@ -224,99 +206,69 @@ export class Finder {
     } else if (typ.isBooleanLiteral()) {
       // TODO look for a better way for this
       propType = literalPropType(typ.getText() === "true");
-    } else if (typeof knownPropType !== "undefined") {
-      propType = knownPropType;
-    } else if (typeof decl !== "undefined" && TypeGuards.isSignaturedDeclaration(decl)) {
-      let paramPropSpec = decl.getParameters().map((p) => this.typeToPropSpec(p.getType(), reference, p.getName()));
-      let returnPropSpec = this.typeToPropSpec(decl.getReturnType(), reference);
-
-      propType = fnPropType(paramPropSpec, returnPropSpec);
     } else if (typ.isArray()) {
-      let elementType = typ.getArrayElementType();
-      if (typeof elementType !== "undefined") {
-        let elementPropType =
-          this.typeToPropSpec(elementType, reference, name).propType;
-        propType = arrayPropType(elementPropType);
-      } else {
-        throw "Unknown array prop type";
-      }
-    } else if (typ.isObject()) {
-      // Check of object goes here since fucntions are detected as objects as well
-      propType = objectPropType(typ.getProperties().map((p) => this.symbolToNamedPropSpec(p, reference)));
+      let pspec = this.typeToPropSpec(typ.getArrayElementTypeOrThrow(), reference);
+      propType = arrayPropType(pspec.propType);
     } else if (typ.isUnion()) {
-      try {
-        let options: PropType[] = typ.getUnionTypes().map((t) => this.typeToPropSpec(t, reference).propType);
-
-        propType = unionPropType(options);
-      } catch (e) {
-        throw "Unable to form union for " + n + ": " + e;
-      }
+      let options: PropType[] = typ.getUnionTypes().map((t) => this.typeToPropSpec(t, reference).propType);
+      propType = unionPropType(options);
+    } else if (typ.isObject()) {
+      propType = objectPropType(typ.getProperties().map((p) => this.propertyToNamedSpec(p, reference)));
     } else {
-      let symText, declText;
-
-      if (typeof sym !== 'undefined') {
-        symText = `(Symbol: ${sym.getName()})`;
-      } else {
-        symText = "(No Symbol)";
-      }
-
-      if (typeof decl !== "undefined") {
-        declText = `(Kind: ${decl.getKindName()}) ` +
-          `(Source: ${decl.getSourceFile().getFilePath()} ` +
-          `Line: ${decl.getStartLineNumber()} ` +
-          `Col: ${decl.getStartLinePos()})`;
-      } else {
-        declText = "(No decl)"
-      }
-      throw `Unknown propType for ${n}: ${typ.getText()} ${symText} ${declText}`;
+      propType = anyPropType;
     }
 
-    return { propType, isNullable };
+    return {
+      propType,
+      isNullable
+    };
+  }
+
+  getConstraintTypeFromTypeParam = (typ: Type): Type | undefined => {
+    return withTypeDecl(typ, (decl: Node) => {
+      if (TypeGuards.isTypeParameterDeclaration(decl)) {
+        let constraint = decl.getConstraint();
+
+        if (constraint) {
+          return constraint.getType();
+        }
+      }
+    });
   }
 
   isTypeVoid = (typ: Type<ts.Type>): boolean => {
-    return (typ.getFlags() & ts.TypeFlags.VoidLike) != 0;
+    return (typ.getFlags() & ts.TypeFlags.VoidLike) !== 0;
   }
 
-  getKnownPropTypeFromNode = (node: Node<ts.Node>): PropType | undefined => {
-    let sym = node.getSymbol();
-    let p: PropType | undefined;
-    if (sym) {
-      p = this.getKnownPropTypeFromSymbol(sym);
-    }
+  symbolToFunctionPropType = (sym: Symbol, reference: Node): PropType | undefined => {
+    if (typeof sym !== "undefined") {
+      let decl = sym.getDeclarations()[0];
 
-    if (typeof p !== "undefined") {
-      return p;
-    } else if (TypeGuards.isTypeParameterDeclaration(node)) {
-      let constraint = node.getConstraint();
+      if (typeof decl !== "undefined" && TypeGuards.isSignaturedDeclaration(decl)) {
+        let paramPropSpec = decl.getParameters().map((p) => {
+          let typ = p.getType();
+          let baseType = this.getConstraintTypeFromTypeParam(typ);
 
-      if (constraint) {
-        try {
-          return this.getKnownPropTypeFromType(constraint.getType());
-        } catch (e) {
-          return undefined;
-        }
-      } else {
-        return undefined;
+          if (typeof baseType !== "undefined") {
+            typ = baseType;
+          }
+
+          return this.typeToPropSpec(typ, reference);
+        });
+        let returnPropSpec = this.typeToPropSpec(decl.getReturnType(), reference);
+
+        return fnPropType(paramPropSpec, returnPropSpec);
       }
-    } else if (TypeGuards.isInterfaceDeclaration(node)) {
-      node.getBaseTypes().forEach((t) => {
-        if (typeof p === "undefined") {
-          p = this.getKnownPropTypeFromType(t)
-        }
-      });
-      return p;
     }
   }
+}
 
-  getKnownPropTypeFromType = (t: Type): PropType | undefined => {
-    let sym = t.getSymbol();
-    if (typeof sym !== 'undefined') {
-      return this.getKnownPropTypeFromSymbol(sym);
+function withTypeDecl<A>(typ: Type, f: (node: Node) => A): A | undefined {
+  let sym = typ.getSymbol() || typ.getAliasSymbol();
+  if (typeof sym !== "undefined") {
+    let decl = sym.getDeclarations()[0];
+    if (decl) {
+      return f(decl);
     }
-  }
-
-  getKnownPropTypeFromSymbol = (sym: Symbol): PropType | undefined => {
-    return this.knownSymbolPropTypes[sym.getFullyQualifiedName()];
   }
 }
