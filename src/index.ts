@@ -5,7 +5,7 @@ const project = new Project({
   tsConfigFilePath: "./tsconfig.json"
 });
 
-const sourceFile = project.addExistingSourceFile("node_modules/antd/lib/button/button.d.ts");
+const sourceFile = project.addExistingSourceFile("node_modules/antd/lib/index.d.ts");
 
 const finder = new Finder();
 const components = finder.findComponentsInSourceFile(sourceFile);
