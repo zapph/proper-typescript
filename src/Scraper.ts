@@ -98,6 +98,10 @@ export interface ComponentSpec {
 
 // Finder class
 
+export type FinderResult = {
+  components: ComponentSpec[]
+};
+
 export class Finder {
   knownSymbolPropTypes: { [name: string]: PropType } = {
     "React.SyntheticEvent": eventPropType,
@@ -106,30 +110,28 @@ export class Finder {
     "React.ReactNode": reactNodePropType
   };
 
-  findComponentsInProject = (project: Project): ComponentSpec[] => {
-    return this.findComponentsInSourceFiles(project.getSourceFiles());
-  }
-
-  findComponentsInSourceFiles = (
-    sourceFiles: SourceFile[]
-  ): ComponentSpec[] => {
-    return sourceFiles
-      .flatMap(this.findComponentsInSourceFile);
-  }
-
   findComponentsInSourceFile = (
     sourceFile: SourceFile
-  ): ComponentSpec[] => {
-    return sourceFile.getExportSymbols()
+  ): FinderResult => {
+    let acc: FinderResult = {
+      components: []
+    };
+
+    sourceFile.getExportSymbols()
       .map((sym) => sym.getAliasedSymbol() || sym)
       .flatMap((sym) => sym.getDeclarations())
       .filter(TypeGuards.isClassDeclaration)
-      .flatMap(this.findComponentsInClass);
+      .forEach((classDec) => {
+        acc = this.findComponentsInClass(classDec, acc);
+      });
+
+    return acc;
   }
 
   findComponentsInClass = (
-    classDec: ClassDeclaration
-  ): ComponentSpec[] => {
+    classDec: ClassDeclaration,
+    acc: FinderResult
+  ): FinderResult => {
     let baseType = classDec.getBaseTypes().find(this.isTypeReactComponent);
 
     if (baseType) {
@@ -143,12 +145,17 @@ export class Finder {
           .map((s) => this.propertyToNamedSpec(s, reference));
       }
 
-      return [{
+      let entry = {
         name: classDec.getSymbolOrThrow().getEscapedName(),
         props: props
-      }];
+      };
+
+      return {
+        ...acc,
+        components: [...acc.components, entry]
+      };
     } else {
-      return [];
+      return acc;
     }
   }
 

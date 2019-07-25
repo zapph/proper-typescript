@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, Finder, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, objectPropType, reactElementPropType, arrayPropType, reactNodePropType } from './Scraper';
+import { ComponentSpec, Finder, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, objectPropType, reactElementPropType, arrayPropType, reactNodePropType, FinderResult, NamedPropSpec } from './Scraper';
 
 // Finding Components
 
@@ -65,7 +65,7 @@ test('find re-exported components', () => {
 
   const finder = new Finder();
 
-  expect(finder.findComponentsInSourceFile(indexFile).length).toBe(1);
+  expect(finder.findComponentsInSourceFile(indexFile).components.length).toBe(1);
 });
 
 // Name
@@ -79,7 +79,7 @@ test('find react component name', () => {
 // Props
 
 test('support basic prop types', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `
     interface Props {
       foo: string,
@@ -92,49 +92,46 @@ test('support basic prop types', () => {
     };
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject({
-    name: "TestC",
-    props: [{
-      name: "foo",
-      propSpec: {
-        propType: stringPropType,
-      }
-    }, {
-      name: "bar",
-      propSpec: {
-        propType: numberPropType,
-      }
-    }, {
-      name: "baz",
-      propSpec: {
-        propType: booleanPropType,
-      }
-    }, {
-      name: "reactElement",
-      propSpec: {
-        propType: reactElementPropType,
-      }
-    }, {
-      name: "reactNode",
-      propSpec: {
-        propType: reactNodePropType,
-      }
-    }, {
-      name: "syntheticEvent",
-      propSpec: {
-        propType: eventPropType,
-      }
-    }, {
-      name: "mouseEvent",
-      propSpec: {
-        propType: eventPropType,
-      }
-    }]
-  });
+  ).toMatchObject([{
+    name: "foo",
+    propSpec: {
+      propType: stringPropType,
+    }
+  }, {
+    name: "bar",
+    propSpec: {
+      propType: numberPropType,
+    }
+  }, {
+    name: "baz",
+    propSpec: {
+      propType: booleanPropType,
+    }
+  }, {
+    name: "reactElement",
+    propSpec: {
+      propType: reactElementPropType,
+    }
+  }, {
+    name: "reactNode",
+    propSpec: {
+      propType: reactNodePropType,
+    }
+  }, {
+    name: "syntheticEvent",
+    propSpec: {
+      propType: eventPropType,
+    }
+  }, {
+    name: "mouseEvent",
+    propSpec: {
+      propType: eventPropType,
+    }
+  }]);
 });
 
 test('note whether a prop is nullable', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `
     interface Props {
       foo: string,
@@ -143,29 +140,26 @@ test('note whether a prop is nullable', () => {
     };
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject({
-    name: "TestC",
-    props: [{
-      name: "foo",
-      propSpec: {
-        isNullable: false,
-      }
-    }, {
-      name: "bar",
-      propSpec: {
-        isNullable: true,
-      }
-    }, {
-      name: "baz",
-      propSpec: {
-        isNullable: true,
-      }
-    }]
-  });
+  ).toMatchObject([{
+    name: "foo",
+    propSpec: {
+      isNullable: false,
+    }
+  }, {
+    name: "bar",
+    propSpec: {
+      isNullable: true,
+    }
+  }, {
+    name: "baz",
+    propSpec: {
+      isNullable: true,
+    }
+  }]);
 });
 
 test('support partial props', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `
     interface MyProps {
       fooPartial: string
@@ -174,19 +168,16 @@ test('support partial props', () => {
     type Props = Partial<MyProps>;
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject({
-    name: "TestC",
-    props: [{
-      name: "fooPartial",
-      propSpec: {
-        isNullable: true,
-      }
-    }]
-  });
+  ).toMatchObject([{
+    name: "fooPartial",
+    propSpec: {
+      isNullable: true,
+    }
+  }]);
 });
 
 test('support event handlers', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `
     interface Props {
       onClick: (event: React.MouseEvent<HTMLElement, MouseEvent>) => void,
@@ -194,24 +185,21 @@ test('support event handlers', () => {
     };
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject({
-    name: "TestC",
-    props: [{
-      name: "onClick",
-      propSpec: {
-        propType: fnPropType([{ propType: eventPropType, isNullable: false }], { propType: voidPropType, isNullable: false })
-      }
-    }, {
-      name: "onClick2",
-      propSpec: {
-        propType: fnPropType([{ propType: eventPropType, isNullable: false }], { propType: voidPropType, isNullable: false })
-      }
-    }]
-  });
+  ).toMatchObject([{
+    name: "onClick",
+    propSpec: {
+      propType: fnPropType([{ propType: eventPropType, isNullable: false }], { propType: voidPropType, isNullable: false })
+    }
+  }, {
+    name: "onClick2",
+    propSpec: {
+      propType: fnPropType([{ propType: eventPropType, isNullable: false }], { propType: voidPropType, isNullable: false })
+    }
+  }]);
 });
 
 test('support literal types', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `
     interface Props {
       lit1: 1,
@@ -220,29 +208,26 @@ test('support literal types', () => {
     };
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject({
-    name: "TestC",
-    props: [{
-      name: "lit1",
-      propSpec: {
-        propType: literalPropType(1)
-      }
-    }, {
-      name: "litFoo",
-      propSpec: {
-        propType: literalPropType("foo")
-      }
-    }, {
-      name: "litTrue",
-      propSpec: {
-        propType: literalPropType(true)
-      }
-    }]
-  });
+  ).toMatchObject([{
+    name: "lit1",
+    propSpec: {
+      propType: literalPropType(1)
+    }
+  }, {
+    name: "litFoo",
+    propSpec: {
+      propType: literalPropType("foo")
+    }
+  }, {
+    name: "litTrue",
+    propSpec: {
+      propType: literalPropType(true)
+    }
+  }]);
 });
 
 test('support union', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `
     interface Props {
       stringOrBoolean: string | false | true,
@@ -251,31 +236,28 @@ test('support union', () => {
     };
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject({
-    name: "TestC",
-    props: [{
-      name: "stringOrBoolean",
-      propSpec: {
-        // boolean ends up as literal true or false
-        propType: unionPropType([stringPropType, literalPropType(false), literalPropType(true)])
-      }
-    }, {
-      name: "fooOrOne",
-      propSpec: {
-        propType: unionPropType([literalPropType("foo"), literalPropType(1)])
-      }
-    }, {
-      name: "fooOrBarOrNumber",
-      propSpec: {
-        // Manually switched
-        propType: unionPropType([numberPropType, literalPropType("foo"), literalPropType("bar")])
-      }
-    }]
-  });
+  ).toMatchObject([{
+    name: "stringOrBoolean",
+    propSpec: {
+      // boolean ends up as literal true or false
+      propType: unionPropType([stringPropType, literalPropType(false), literalPropType(true)])
+    }
+  }, {
+    name: "fooOrOne",
+    propSpec: {
+      propType: unionPropType([literalPropType("foo"), literalPropType(1)])
+    }
+  }, {
+    name: "fooOrBarOrNumber",
+    propSpec: {
+      // Manually switched
+      propType: unionPropType([numberPropType, literalPropType("foo"), literalPropType("bar")])
+    }
+  }]);
 });
 
 test('support object types', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `
     interface Props {
       obj: { bar: number, baz?: string, qux: { quux: number } },
@@ -283,59 +265,53 @@ test('support object types', () => {
     };
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject({
-    name: "TestC",
-    props: [{
-      name: "obj",
-      propSpec: {
-        propType:
-          objectPropType([{
-            name: "bar",
-            propSpec: { propType: numberPropType, isNullable: false }
-          }, {
-            name: "baz",
-            propSpec: { propType: stringPropType, isNullable: true }
-          }, {
-            name: "qux",
-            propSpec: {
-              propType: objectPropType([{
-                name: "quux",
-                propSpec: { propType: numberPropType, isNullable: false }
-              }]),
-              isNullable: false
-            }
-          }])
-      }
-    }, {
-      name: "empty",
-      propSpec: {
-        propType: objectPropType([])
-      }
-    }]
-  });
+  ).toMatchObject([{
+    name: "obj",
+    propSpec: {
+      propType:
+        objectPropType([{
+          name: "bar",
+          propSpec: { propType: numberPropType, isNullable: false }
+        }, {
+          name: "baz",
+          propSpec: { propType: stringPropType, isNullable: true }
+        }, {
+          name: "qux",
+          propSpec: {
+            propType: objectPropType([{
+              name: "quux",
+              propSpec: { propType: numberPropType, isNullable: false }
+            }]),
+            isNullable: false
+          }
+        }])
+    }
+  }, {
+    name: "empty",
+    propSpec: {
+      propType: objectPropType([])
+    }
+  }]);
 });;
 
 test('support array types', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `
     interface Props {
       foo: string[],
     };
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject({
-    name: "TestC",
-    props: [{
-      name: "foo",
-      propSpec: {
-        propType: arrayPropType(stringPropType),
-      }
-    }]
-  });
+  ).toMatchObject([{
+    name: "foo",
+    propSpec: {
+      propType: arrayPropType(stringPropType),
+    }
+  }]);
 });
 
 xtest('support recursive types', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `
     type Foo = { foo?: Foo }
 
@@ -344,18 +320,15 @@ xtest('support recursive types', () => {
     };
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject({
-    name: "TestC",
-    props: [{
-      name: "foo",
-      propSpec: {
-        propType: arrayPropType(stringPropType),
-      }
-    }]
-  });
+  ).toMatchObject([{
+    name: "foo",
+    propSpec: {
+      propType: arrayPropType(stringPropType),
+    }
+  }]);
 });
 
-function findComponentsInContent(content: string): ComponentSpec[] {
+function findComponentsInContent(content: string): FinderResult {
   const project = new Project({
     compilerOptions: {
       strictNullChecks: true
@@ -369,11 +342,17 @@ function findComponentsInContent(content: string): ComponentSpec[] {
 }
 
 function expectComponentsInContent(content: string): jest.Matchers<ComponentSpec[]> {
-  return expect(findComponentsInContent(content));
+  return expect(findComponentsInContent(content).components);
 }
 
 function expectSingleComponentInContent(content: string): jest.Matchers<ComponentSpec> {
-  let components = findComponentsInContent(content);
-  expect(components.length).toBe(1);
-  return expect(components[0]);
+  let r = findComponentsInContent(content);
+  expect(r.components.length).toBe(1);
+  return expect(r.components[0]);
+}
+
+function expectPropsOfSingleComponentInContent(content: string): jest.Matchers<NamedPropSpec[]> {
+  let r = findComponentsInContent(content);
+  expect(r.components.length).toBe(1);
+  return expect(r.components[0].props);
 }
