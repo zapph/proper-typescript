@@ -1,6 +1,8 @@
 import { Project } from "ts-morph";
 import { ComponentSpec, Finder, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, objectPropType, reactElementPropType, arrayPropType, reactNodePropType } from './Scraper';
 
+// Finding Components
+
 test('ignore files without react components', () => {
   expectComponentsInContent("").toStrictEqual([])
 });
@@ -37,11 +39,44 @@ test('find react component with differently imported react', () => {
   );
 });
 
+test('find re-exported components', () => {
+  const project = new Project({
+    compilerOptions: {
+      strictNullChecks: true
+    }
+  });
+
+  project.createSourceFile(
+    "test/foo/FooComponent.ts",
+    "export default class FooComponent extends React.Component<{foo: string}, {}> {}"
+  );
+
+  project.createSourceFile(
+    "test/foo/index.ts",
+    `import FooComponent from './FooComponent';
+
+     export default FooComponent;`
+  );
+
+  const indexFile = project.createSourceFile(
+    "test/index.tsx",
+    "export { default as FooComponent } from './foo'"
+  );
+
+  const finder = new Finder();
+
+  expect(finder.findComponentsInSourceFile(indexFile).length).toBe(1);
+});
+
+// Name
+
 test('find react component name', () => {
   expectSingleComponentInContent(
     `export class TestC extends React.Component<{}, {}> {}`
   ).toMatchObject({ name: "TestC" });
 });
+
+// Props
 
 test('support basic prop types', () => {
   expectSingleComponentInContent(

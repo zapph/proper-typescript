@@ -114,14 +114,17 @@ export class Finder {
     sourceFiles: SourceFile[]
   ): ComponentSpec[] => {
     return sourceFiles
-      .flatMap((s) => s.getClasses())
-      .flatMap(this.findComponentsInClass);
+      .flatMap(this.findComponentsInSourceFile);
   }
 
   findComponentsInSourceFile = (
     sourceFile: SourceFile
   ): ComponentSpec[] => {
-    return this.findComponentsInSourceFiles([sourceFile]);
+    return sourceFile.getExportSymbols()
+      .map((sym) => sym.getAliasedSymbol() || sym)
+      .flatMap((sym) => sym.getDeclarations())
+      .filter(TypeGuards.isClassDeclaration)
+      .flatMap(this.findComponentsInClass);
   }
 
   findComponentsInClass = (
