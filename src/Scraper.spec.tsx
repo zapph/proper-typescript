@@ -136,8 +136,6 @@ test('support basic prop types', () => {
 test('note whether a prop is nullable', () => {
   expectSingleComponentInContent(
     `
-    import * as React from 'react';
-
     interface Props {
       foo: string,
       bar: string | undefined,
@@ -169,8 +167,6 @@ test('note whether a prop is nullable', () => {
 test('support partial props', () => {
   expectSingleComponentInContent(
     `
-    import * as React from 'react';
-
     interface MyProps {
       fooPartial: string
     };
@@ -192,8 +188,6 @@ test('support partial props', () => {
 test('support event handlers', () => {
   expectSingleComponentInContent(
     `
-    import * as React from 'react';
-
     interface Props {
       onClick: (event: React.MouseEvent<HTMLElement, MouseEvent>) => void,
       onClick2: React.MouseEventHandler<HTMLElement>
@@ -219,8 +213,6 @@ test('support event handlers', () => {
 test('support literal types', () => {
   expectSingleComponentInContent(
     `
-    import * as React from 'react';
-
     interface Props {
       lit1: 1,
       litFoo: "foo",
@@ -252,8 +244,6 @@ test('support literal types', () => {
 test('support union', () => {
   expectSingleComponentInContent(
     `
-    import * as React from 'react';
-
     interface Props {
       stringOrBoolean: string | false | true,
       fooOrOne: "foo" | 1,
@@ -287,8 +277,6 @@ test('support union', () => {
 test('support object types', () => {
   expectSingleComponentInContent(
     `
-    import * as React from 'react';
-
     interface Props {
       obj: { bar: number, baz?: string, qux: { quux: number } },
       empty: {}
@@ -330,8 +318,6 @@ test('support object types', () => {
 test('support array types', () => {
   expectSingleComponentInContent(
     `
-    import * as React from 'react';
-
     interface Props {
       foo: string[],
     };
