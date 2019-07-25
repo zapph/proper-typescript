@@ -348,6 +348,27 @@ test('support array types', () => {
   });
 });
 
+xtest('support recursive types', () => {
+  expectSingleComponentInContent(
+    `
+    type Foo = { foo?: Foo }
+
+    interface Props {
+      foo: Foo,
+    };
+
+    export class TestC extends React.Component<Props, {}> {}`
+  ).toMatchObject({
+    name: "TestC",
+    props: [{
+      name: "foo",
+      propSpec: {
+        propType: arrayPropType(stringPropType),
+      }
+    }]
+  });
+});
+
 function findComponentsInContent(content: string): ComponentSpec[] {
   const project = new Project({
     compilerOptions: {
