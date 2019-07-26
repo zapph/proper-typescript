@@ -107,7 +107,7 @@ export interface PropSpec {
 
 export interface ComponentSpec {
   name: string,
-  propsRefNdx: number
+  propsRefIndex: number
 }
 
 // Finder class
@@ -117,38 +117,27 @@ export type FinderResult = {
   refs: ObjectSpec[]
 };
 
-export class Finder {
-  knownSymbolPropTypes: { [name: string]: PropType } = {
-    "React.SyntheticEvent": eventPropType,
-    "React.MouseEvent": eventPropType, // TODO make this generic
-    "React.ReactElement": reactElementPropType,
-    "React.ReactNode": reactNodePropType
+let knownSymbolPropTypes: { [name: string]: PropType } = {
+  "React.SyntheticEvent": eventPropType,
+  "React.MouseEvent": eventPropType, // TODO make this generic
+  "React.ReactElement": reactElementPropType,
+  "React.ReactNode": reactNodePropType
+};
+
+
+export function findComponentsInSourceFile(
+  sourceFile: SourceFile
+): FinderResult {
+  let acc: FinderResult = {
+    components: [],
+    refs: [],
   };
 
-  findComponentsInSourceFile = (
-    sourceFile: SourceFile
-  ): FinderResult => {
-    let acc: FinderResult = {
-      components: [],
-      refs: [],
-    };
-
-    sourceFile.getExportSymbols()
-      .map((sym) => sym.getAliasedSymbol() || sym)
-      .flatMap((sym) => sym.getDeclarations())
-      .filter(TypeGuards.isClassDeclaration)
-      .forEach((classDec) => {
-        acc = this.findComponentsInClass(classDec, acc);
-      });
-
-    return acc;
-  }
-
-  findComponentsInClass = (
+  function findComponentsInClass(
     classDec: ClassDeclaration,
     acc: FinderResult
-  ): FinderResult => {
-    let baseType = classDec.getBaseTypes().find(this.isTypeReactComponent);
+  ): FinderResult {
+    let baseType = classDec.getBaseTypes().find(isTypeReactComponent);
 
     if (baseType) {
       let propTypeArg = baseType.getTypeArguments()[0];
@@ -161,12 +150,12 @@ export class Finder {
       if (propTypeArg) {
         members = propTypeArg
           .getProperties()
-          .map((s) => this.propertyToObjectMember(s, reference));
+          .map((s) => propertyToObjectMember(s, reference));
       }
 
       let entry: ComponentSpec = {
         name: classDec.getSymbolOrThrow().getEscapedName(),
-        propsRefNdx: acc.refs.length // TODO
+        propsRefIndex: acc.refs.length // TODO
       };
 
       let name = propTypeArg.isAnonymous() ? null : propTypeArgSym.getName();
@@ -182,20 +171,20 @@ export class Finder {
     }
   }
 
-  isTypeReactComponent = (t: Type): boolean => {
+  function isTypeReactComponent(t: Type): boolean {
     let sym = t.getSymbol();
 
     if (sym) {
       return sym.getFullyQualifiedName() === "React.Component";
     } else {
-      return t.getBaseTypes().findIndex(this.isTypeReactComponent) >= 0;
+      return t.getBaseTypes().findIndex(isTypeReactComponent) >= 0;
     }
   }
 
-  propertyToObjectMember = (s: Symbol, reference: Node): ObjectMember => {
+  function propertyToObjectMember(s: Symbol, reference: Node): ObjectMember {
     let name = s.getName();
     let typ = s.getTypeAtLocation(reference);
-    let propSpec = this.typeToPropSpec(typ, reference);
+    let propSpec = typeToPropSpec(typ, reference);
 
     return {
       name,
@@ -204,7 +193,7 @@ export class Finder {
     };
   }
 
-  typeToPropSpec = (typ: Type, reference: Node): PropSpec => {
+  function typeToPropSpec(typ: Type, reference: Node): PropSpec {
     let sym = typ.getSymbol() || typ.getAliasSymbol();
 
     let isNullable = typ.isNullable();
@@ -214,12 +203,12 @@ export class Finder {
     }
     let knownPropType: PropType | undefined;
     if (typeof sym !== "undefined") {
-      knownPropType = this.knownSymbolPropTypes[sym.getFullyQualifiedName()];
+      knownPropType = knownSymbolPropTypes[sym.getFullyQualifiedName()];
     }
 
     let fnPropType: PropType | undefined;
     if (typeof sym !== "undefined") {
-      fnPropType = this.symbolToFunctionPropType(sym, reference);
+      fnPropType = symbolToFunctionPropType(sym, reference);
     }
 
     let propType: PropType;
@@ -228,7 +217,7 @@ export class Finder {
       propType = knownPropType;
     } else if (typeof fnPropType !== "undefined") {
       propType = fnPropType;
-    } else if (this.isTypeVoid(typ)) {
+    } else if (isTypeVoid(typ)) {
       propType = voidPropType;
     } else if (typ.isString()) {
       propType = stringPropType;
@@ -244,13 +233,13 @@ export class Finder {
       // TODO look for a better way for this
       propType = literalPropType(typ.getText() === "true");
     } else if (typ.isArray()) {
-      let pspec = this.typeToPropSpec(typ.getArrayElementTypeOrThrow(), reference);
+      let pspec = typeToPropSpec(typ.getArrayElementTypeOrThrow(), reference);
       propType = arrayPropType(pspec.propType);
     } else if (typ.isUnion()) {
-      let options: PropType[] = typ.getUnionTypes().map((t) => this.typeToPropSpec(t, reference).propType);
+      let options: PropType[] = typ.getUnionTypes().map((t) => typeToPropSpec(t, reference).propType);
       propType = unionPropType(options);
     } /*else if (typ.isObject()) {
-      propType = objectPropType(typ.getProperties().map((p) => this.propertyToObjectMember(p, reference)));
+      propType = objectPropType(typ.getProperties().map((p) => propertyToObjectMember(p, reference)));
     } */else {
       propType = anyPropType;
     }
@@ -261,44 +250,59 @@ export class Finder {
     };
   }
 
-  getConstraintTypeFromTypeParam = (typ: Type): Type | undefined => {
-    return withTypeDecl(typ, (decl: Node) => {
-      if (TypeGuards.isTypeParameterDeclaration(decl)) {
-        let constraint = decl.getConstraint();
-
-        if (constraint) {
-          return constraint.getType();
-        }
-      }
-    });
-  }
-
-  isTypeVoid = (typ: Type<ts.Type>): boolean => {
-    return (typ.getFlags() & ts.TypeFlags.VoidLike) !== 0;
-  }
-
-  symbolToFunctionPropType = (sym: Symbol, reference: Node): PropType | undefined => {
+  function symbolToFunctionPropType(sym: Symbol, reference: Node): PropType | undefined {
     if (typeof sym !== "undefined") {
       let decl = sym.getDeclarations()[0];
 
       if (typeof decl !== "undefined" && TypeGuards.isSignaturedDeclaration(decl)) {
         let paramPropSpec = decl.getParameters().map((p) => {
           let typ = p.getType();
-          let baseType = this.getConstraintTypeFromTypeParam(typ);
+          let baseType = getConstraintTypeFromTypeParam(typ);
 
           if (typeof baseType !== "undefined") {
             typ = baseType;
           }
 
-          return this.typeToPropSpec(typ, reference);
+          return typeToPropSpec(typ, reference);
         });
-        let returnPropSpec = this.typeToPropSpec(decl.getReturnType(), reference);
+        let returnPropSpec = typeToPropSpec(decl.getReturnType(), reference);
 
         return fnPropType(paramPropSpec, returnPropSpec);
       }
     }
   }
+
+  // Run
+
+  sourceFile.getExportSymbols()
+    .map((sym) => sym.getAliasedSymbol() || sym)
+    .flatMap((sym) => sym.getDeclarations())
+    .filter(TypeGuards.isClassDeclaration)
+    .forEach((classDec) => {
+      acc = findComponentsInClass(classDec, acc);
+    });
+
+  return acc;
 }
+
+// Helpers
+
+function getConstraintTypeFromTypeParam(typ: Type): Type | undefined {
+  return withTypeDecl(typ, (decl: Node) => {
+    if (TypeGuards.isTypeParameterDeclaration(decl)) {
+      let constraint = decl.getConstraint();
+
+      if (constraint) {
+        return constraint.getType();
+      }
+    }
+  });
+}
+
+function isTypeVoid(typ: Type<ts.Type>): boolean {
+  return (typ.getFlags() & ts.TypeFlags.VoidLike) !== 0;
+}
+
 
 function withTypeDecl<A>(typ: Type, f: (node: Node) => A): A | undefined {
   let sym = typ.getSymbol() || typ.getAliasSymbol();

@@ -1,13 +1,13 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, Finder, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, reactElementPropType, arrayPropType, reactNodePropType, FinderResult, ObjectMember, ObjectSpec } from './Scraper';
+import { ComponentSpec, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, reactElementPropType, arrayPropType, reactNodePropType, FinderResult, ObjectMember, ObjectSpec, RefPropType, findComponentsInSourceFile } from './Scraper';
 
 // Finding Components
 
-xtest('ignore files without react components', () => {
+test('ignore files without react components', () => {
   expectComponentsInContent("").toStrictEqual([])
 });
 
-xtest('ignore non react component classes', () => {
+test('ignore non react component classes', () => {
   expectComponentsInContent("class Foo; class Bar extends Foo")
     .toStrictEqual([]);
 });
@@ -75,9 +75,7 @@ test('find re-exported components', () => {
     "export { default as FooComponent } from './foo'"
   );
 
-  const finder = new Finder();
-
-  expect(finder.findComponentsInSourceFile(indexFile).components.length).toBe(1);
+  expect(findComponentsInSourceFile(indexFile).components.length).toBe(1);
 });
 
 // Name
@@ -230,9 +228,9 @@ test('support union', () => {
   }]);
 });
 
-/*
-xtest('support object types', () => {
-  expectPropMembersOfSingleComponentInContent(
+
+test('support object types', () => {
+  const r = findComponentsInContent(
     `
     interface Props {
       obj: { bar: number, baz?: string, qux: { quux: number } },
@@ -240,31 +238,67 @@ xtest('support object types', () => {
     };
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject([{
-    name: "obj",
-    propType: aobjectPropType([{
+  );
+
+  expect(r.components.length).toBe(1);
+  let comp = r.components[0];
+
+  let propsRefIndex = comp.propsRefIndex;
+  let propsRef = r.refs[propsRefIndex];
+
+  expect(propsRef).toMatchObject({
+    name: "Props",
+    members: [{
+      name: "obj",
+      isNullable: false,
+      propType: { kind: "ref" }
+    }, {
+      name: "empty",
+      isNullable: false,
+      propType: { kind: "ref" }
+    }]
+  });
+
+  let objRefIndex = (propsRef.members[0].propType as RefPropType).refIndex;
+  let objRef = r.refs[objRefIndex];
+
+  expect(objRef).toMatchObject({
+    name: null,
+    members: [{
       name: "bar",
-      propType: numberPropType,
-      isNullable: false
+      isNullable: false,
+      propType: numberPropType
     }, {
       name: "baz",
-      propType: stringPropType,
-      isNullable: true
+      isNullable: true,
+      propType: stringPropType
     }, {
       name: "qux",
-      propType: aobjectPropType([{
-        name: "quux",
-        propType: numberPropType,
-        isNullable: false
-      }]),
-      isNullable: false
-    }])
-  }, {
-    name: "empty",
-    propType: aobjectPropType([])
-  }]);
+      isNullable: false,
+      propType: { kind: "ref" }
+    }]
+  });
+
+  let quxRefIndex = (objRef.members[1].propType as RefPropType).refIndex;
+  let quxRef = r.refs[quxRefIndex];
+
+  expect(quxRef).toMatchObject({
+    name: null,
+    members: [{
+      name: "quux",
+      isNullable: false,
+      propType: numberPropType
+    }]
+  });
+
+  let emptyRefIndex = (propsRef.members[0].propType as RefPropType).refIndex;
+  let emptyRef = r.refs[emptyRefIndex];
+
+  expect(emptyRef).toMatchObject({
+    name: null,
+    members: []
+  });
 });
-*/
 
 test('support array types', () => {
   expectPropMembersOfSingleComponentInContent(
@@ -306,9 +340,7 @@ function findComponentsInContent(content: string): FinderResult {
   });
 
   const sourceFile = project.createSourceFile("test/MyClass.tsx", content);
-  const finder = new Finder();
-
-  return finder.findComponentsInSourceFile(sourceFile);
+  return findComponentsInSourceFile(sourceFile);
 }
 
 function expectComponentsInContent(content: string): jest.Matchers<ComponentSpec[]> {
@@ -326,9 +358,9 @@ function expectPropsOfSingleComponentInContent(content: string): jest.Matchers<O
   expect(r.components.length).toBe(1);
 
   let comp = r.components[0];
-  let propsRefNdx = comp.propsRefNdx;
+  let propsRefIndex = comp.propsRefIndex;
 
-  let propsRef = r.refs[propsRefNdx];
+  let propsRef = r.refs[propsRefIndex];
 
   expect(propsRef).not.toBeUndefined();
   return expect(propsRef);
@@ -339,9 +371,9 @@ function expectPropMembersOfSingleComponentInContent(content: string): jest.Matc
   expect(r.components.length).toBe(1);
 
   let comp = r.components[0];
-  let propsRefNdx = comp.propsRefNdx;
+  let propsRefIndex = comp.propsRefIndex;
 
-  let propsRef = r.refs[propsRefNdx];
+  let propsRef = r.refs[propsRefIndex];
 
   expect(propsRef).not.toBeUndefined();
   return expect(propsRef.members);

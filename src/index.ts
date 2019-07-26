@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { Finder } from "./Scraper";
+import { findComponentsInSourceFile } from "./Scraper";
 
 const project = new Project({
   tsConfigFilePath: "./tsconfig.json"
@@ -7,6 +7,5 @@ const project = new Project({
 
 const sourceFile = project.addExistingSourceFile("node_modules/antd/lib/index.d.ts");
 
-const finder = new Finder();
-const components = finder.findComponentsInSourceFile(sourceFile);
+const components = findComponentsInSourceFile(sourceFile);
 console.log(JSON.stringify(components, null, 2));
