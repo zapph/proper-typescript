@@ -279,7 +279,7 @@ test('support object types', () => {
     }]
   });
 
-  let quxRefIndex = (objRef.members[1].propType as RefPropType).refIndex;
+  let quxRefIndex = (objRef.members[2].propType as RefPropType).refIndex;
   let quxRef = r.refs[quxRefIndex];
 
   expect(quxRef).toMatchObject({
@@ -291,7 +291,7 @@ test('support object types', () => {
     }]
   });
 
-  let emptyRefIndex = (propsRef.members[0].propType as RefPropType).refIndex;
+  let emptyRefIndex = (propsRef.members[1].propType as RefPropType).refIndex;
   let emptyRef = r.refs[emptyRefIndex];
 
   expect(emptyRef).toMatchObject({

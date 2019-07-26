@@ -128,47 +128,46 @@ let knownSymbolPropTypes: { [name: string]: PropType } = {
 export function findComponentsInSourceFile(
   sourceFile: SourceFile
 ): FinderResult {
-  let acc: FinderResult = {
-    components: [],
-    refs: [],
-  };
+  let components: ComponentSpec[] = [];
+  let refs: ObjectSpec[] = [];
 
   function findComponentsInClass(
-    classDec: ClassDeclaration,
-    acc: FinderResult
-  ): FinderResult {
+    classDec: ClassDeclaration
+  ): void {
     let baseType = classDec.getBaseTypes().find(isTypeReactComponent);
 
     if (baseType) {
       let propTypeArg = baseType.getTypeArguments()[0];
-      let propTypeArgSym = propTypeArg.getSymbolOrThrow();
-      let reference = propTypeArgSym.getDeclarations()[0];
 
-      let members: ObjectMember[] = [];
+      if (typeof propTypeArg !== "undefined") {
+        let propsRefIndex = storeRef(propTypeArg);
 
 
-      if (propTypeArg) {
-        members = propTypeArg
-          .getProperties()
-          .map((s) => propertyToObjectMember(s, reference));
+        let component: ComponentSpec = {
+          name: classDec.getSymbolOrThrow().getName(),
+          propsRefIndex
+        };
+
+        components.push(component);
       }
-
-      let entry: ComponentSpec = {
-        name: classDec.getSymbolOrThrow().getEscapedName(),
-        propsRefIndex: acc.refs.length // TODO
-      };
-
-      let name = propTypeArg.isAnonymous() ? null : propTypeArgSym.getName();
-
-      let ref: ObjectSpec = objectSpec(name, members);
-
-      return {
-        components: [...acc.components, entry],
-        refs: [...acc.refs, ref]
-      };
-    } else {
-      return acc;
     }
+  }
+
+  function storeRef(typ: Type): number {
+    let sym = typ.getSymbolOrThrow();
+    let reference = sym.getDeclarations()[0];
+
+    let members: ObjectMember[] = typ
+      .getProperties()
+      .map((s) => propertyToObjectMember(s, reference));
+
+    let name = typ.isAnonymous() ? null : sym.getName();
+
+    let ref: ObjectSpec = objectSpec(name, members);
+    let ndx = refs.length;
+    refs.push(ref);
+
+    return ndx;
   }
 
   function isTypeReactComponent(t: Type): boolean {
@@ -238,9 +237,10 @@ export function findComponentsInSourceFile(
     } else if (typ.isUnion()) {
       let options: PropType[] = typ.getUnionTypes().map((t) => typeToPropSpec(t, reference).propType);
       propType = unionPropType(options);
-    } /*else if (typ.isObject()) {
-      propType = objectPropType(typ.getProperties().map((p) => propertyToObjectMember(p, reference)));
-    } */else {
+    } else if (typ.isObject()) {
+      let refIndex = storeRef(typ);
+      propType = refPropType(refIndex);
+    } else {
       propType = anyPropType;
     }
 
@@ -278,11 +278,12 @@ export function findComponentsInSourceFile(
     .map((sym) => sym.getAliasedSymbol() || sym)
     .flatMap((sym) => sym.getDeclarations())
     .filter(TypeGuards.isClassDeclaration)
-    .forEach((classDec) => {
-      acc = findComponentsInClass(classDec, acc);
-    });
+    .forEach((classDec) => findComponentsInClass(classDec));
 
-  return acc;
+  return {
+    components,
+    refs,
+  };
 }
 
 // Helpers
