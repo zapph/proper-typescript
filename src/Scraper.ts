@@ -1,7 +1,9 @@
-import { ClassDeclaration, Node, Project, SourceFile, Symbol, Type, TypeGuards, PropertySignature } from "ts-morph";
+import { ClassDeclaration, Node, SourceFile, Symbol, Type, TypeGuards } from "ts-morph";
 import ts from "typescript";
 
 // PropTypes
+
+export type RefIndex = number
 
 export type PropType =
   AnyPropType
@@ -14,7 +16,8 @@ export type PropType =
   | ReactNodePropType
   | LiteralPropType
   | UnionPropType
-  | ObjectPropType
+  | RefPropType
+  | PartialPropType
   | ArrayPropType
   | FnPropType
 
@@ -53,10 +56,16 @@ export function literalPropType(value: LiteralValue): PropType {
   };
 }
 
-export type ObjectPropType = { kind: "object", props: NamedPropSpec[] }
+export type RefPropType = { kind: "ref", refIndex: RefIndex }
 
-export function objectPropType(props: NamedPropSpec[]): PropType {
-  return { kind: "object", props };
+export function refPropType(refIndex: RefIndex): PropType {
+  return { kind: "ref", refIndex };
+}
+
+export type PartialPropType = { kind: "partial", refIndex: RefIndex }
+
+export function partialPropType(refIndex: RefIndex): PropType {
+  return { kind: "partial", refIndex };
 }
 
 export type UnionPropType = { kind: "union", options: PropType[] }
@@ -81,10 +90,15 @@ export function fnPropType(argTypes: PropSpec[], returnType: PropSpec): PropType
   return { kind: "fn", argTypes, returnType };
 }
 
-export interface NamedPropSpec {
-  name: string,
-  propSpec: PropSpec
+// ObjectSpec, PropSpec, ComponentSpec
+
+export type ObjectSpec = { name: string | null, members: ObjectMember[] }
+export type ObjectMember = { name: string, isNullable: boolean, propType: PropType }
+
+export function objectSpec(name: string | null, members: ObjectMember[]): ObjectSpec {
+  return { name, members };
 }
+
 
 export interface PropSpec {
   propType: PropType,
@@ -93,13 +107,14 @@ export interface PropSpec {
 
 export interface ComponentSpec {
   name: string,
-  props: NamedPropSpec[]
+  propsRefNdx: number
 }
 
 // Finder class
 
 export type FinderResult = {
-  components: ComponentSpec[]
+  components: ComponentSpec[],
+  refs: ObjectSpec[]
 };
 
 export class Finder {
@@ -114,7 +129,8 @@ export class Finder {
     sourceFile: SourceFile
   ): FinderResult => {
     let acc: FinderResult = {
-      components: []
+      components: [],
+      refs: [],
     };
 
     sourceFile.getExportSymbols()
@@ -136,23 +152,28 @@ export class Finder {
 
     if (baseType) {
       let propTypeArg = baseType.getTypeArguments()[0];
-      let props: NamedPropSpec[] = [];
+      let members: ObjectMember[] = [];
 
       let reference = propTypeArg.getSymbolOrThrow().getDeclarations()[0];
       if (propTypeArg) {
-        props = propTypeArg
+        members = propTypeArg
           .getProperties()
-          .map((s) => this.propertyToNamedSpec(s, reference));
+          .map((s) => this.propertyToObjectMember(s, reference));
       }
 
-      let entry = {
+      let entry: ComponentSpec = {
         name: classDec.getSymbolOrThrow().getEscapedName(),
-        props: props
+        propsRefNdx: acc.refs.length // TODO
       };
 
+      let ref: ObjectSpec = objectSpec(
+        null, // TODO
+        members
+      );
+
       return {
-        ...acc,
-        components: [...acc.components, entry]
+        components: [...acc.components, entry],
+        refs: [...acc.refs, ref]
       };
     } else {
       return acc;
@@ -169,12 +190,16 @@ export class Finder {
     }
   }
 
-  propertyToNamedSpec = (s: Symbol, reference: Node): NamedPropSpec => {
+  propertyToObjectMember = (s: Symbol, reference: Node): ObjectMember => {
     let name = s.getName();
     let typ = s.getTypeAtLocation(reference);
     let propSpec = this.typeToPropSpec(typ, reference);
 
-    return { name, propSpec };
+    return {
+      name,
+      isNullable: propSpec.isNullable,
+      propType: propSpec.propType
+    };
   }
 
   typeToPropSpec = (typ: Type, reference: Node): PropSpec => {
@@ -222,9 +247,9 @@ export class Finder {
     } else if (typ.isUnion()) {
       let options: PropType[] = typ.getUnionTypes().map((t) => this.typeToPropSpec(t, reference).propType);
       propType = unionPropType(options);
-    } else if (typ.isObject()) {
-      propType = objectPropType(typ.getProperties().map((p) => this.propertyToNamedSpec(p, reference)));
-    } else {
+    } /*else if (typ.isObject()) {
+      propType = objectPropType(typ.getProperties().map((p) => this.propertyToObjectMember(p, reference)));
+    } */else {
       propType = anyPropType;
     }
 
