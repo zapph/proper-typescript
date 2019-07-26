@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, reactElementPropType, arrayPropType, reactNodePropType, FinderResult, ObjectMember, ObjectSpec, RefPropType, findComponentsInSourceFile } from './Scraper';
+import { ComponentSpec, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, reactElementPropType, arrayPropType, reactNodePropType, FinderResult, ObjectMember, ObjectSpec, RefPropType, findComponentsInSourceFile, refPropType } from './Scraper';
 
 // Finding Components
 
@@ -300,6 +300,18 @@ test('support object types', () => {
   });
 });
 
+test('reuse object refs', () => {
+  const r = findComponentsInContent(
+    `
+    interface Props {};
+
+    export class TestC1 extends React.Component<Props, {}> {}
+    export class TestC2 extends React.Component<Props, {}> {}`
+  );
+
+  expect(r.refs.length).toBe(1);
+})
+
 test('support array types', () => {
   expectPropMembersOfSingleComponentInContent(
     `
@@ -314,8 +326,8 @@ test('support array types', () => {
   }]);
 });
 
-xtest('support recursive types', () => {
-  expectPropMembersOfSingleComponentInContent(
+test('support recursive types', () => {
+  const r = findComponentsInContent(
     `
     type Foo = { foo?: Foo }
 
@@ -324,12 +336,32 @@ xtest('support recursive types', () => {
     };
 
     export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject([{
-    name: "foo",
-    propSpec: {
-      propType: arrayPropType(stringPropType),
-    }
-  }]);
+  );
+
+  let comp = r.components[0];
+  expect(comp).not.toBeUndefined();
+
+  let propsRef = r.refs[comp.propsRefIndex];
+  expect(propsRef).toMatchObject({
+    name: "Props",
+    members: [{
+      name: "foo",
+      isNullable: false,
+      propType: { kind: "ref" }
+    }]
+  });
+
+  let fooRefIndex = (propsRef.members[0].propType as RefPropType).refIndex;
+  let fooRef = r.refs[fooRefIndex];
+
+  expect(fooRef).toMatchObject({
+    name: null,
+    members: [{
+      name: "foo",
+      isNullable: true,
+      propType: refPropType(fooRefIndex)
+    }]
+  });
 });
 
 function findComponentsInContent(content: string): FinderResult {

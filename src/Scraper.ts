@@ -124,12 +124,14 @@ let knownSymbolPropTypes: { [name: string]: PropType } = {
   "React.ReactNode": reactNodePropType
 };
 
+let placeholderRef = objectSpec("__placeholder", []);
 
 export function findComponentsInSourceFile(
   sourceFile: SourceFile
 ): FinderResult {
   let components: ComponentSpec[] = [];
   let refs: ObjectSpec[] = [];
+  let refNdxMap: Map<Type, number> = new Map();
 
   function findComponentsInClass(
     classDec: ClassDeclaration
@@ -142,7 +144,6 @@ export function findComponentsInSourceFile(
       if (typeof propTypeArg !== "undefined") {
         let propsRefIndex = storeRef(propTypeArg);
 
-
         let component: ComponentSpec = {
           name: classDec.getSymbolOrThrow().getName(),
           propsRefIndex
@@ -154,6 +155,17 @@ export function findComponentsInSourceFile(
   }
 
   function storeRef(typ: Type): number {
+    let existingIndex = refNdxMap.get(typ);
+    if (typeof existingIndex !== "undefined") {
+      return existingIndex;
+    }
+
+    // We add a temporary placeholder to reserve
+    // a spot in the refs array.
+    let ndx = refs.length;
+    refs.push(placeholderRef);
+    refNdxMap.set(typ, ndx);
+
     let sym = typ.getSymbolOrThrow();
     let reference = sym.getDeclarations()[0];
 
@@ -164,8 +176,9 @@ export function findComponentsInSourceFile(
     let name = typ.isAnonymous() ? null : sym.getName();
 
     let ref: ObjectSpec = objectSpec(name, members);
-    let ndx = refs.length;
-    refs.push(ref);
+
+    // Remove placeholder and replace with actual entry.
+    refs[ndx] = ref;
 
     return ndx;
   }
