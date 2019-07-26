@@ -152,9 +152,12 @@ export class Finder {
 
     if (baseType) {
       let propTypeArg = baseType.getTypeArguments()[0];
+      let propTypeArgSym = propTypeArg.getSymbolOrThrow();
+      let reference = propTypeArgSym.getDeclarations()[0];
+
       let members: ObjectMember[] = [];
 
-      let reference = propTypeArg.getSymbolOrThrow().getDeclarations()[0];
+
       if (propTypeArg) {
         members = propTypeArg
           .getProperties()
@@ -166,10 +169,9 @@ export class Finder {
         propsRefNdx: acc.refs.length // TODO
       };
 
-      let ref: ObjectSpec = objectSpec(
-        null, // TODO
-        members
-      );
+      let name = propTypeArg.isAnonymous() ? null : propTypeArgSym.getName();
+
+      let ref: ObjectSpec = objectSpec(name, members);
 
       return {
         components: [...acc.components, entry],

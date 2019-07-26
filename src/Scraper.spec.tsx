@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, Finder, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, reactElementPropType, arrayPropType, reactNodePropType, FinderResult, ObjectMember } from './Scraper';
+import { ComponentSpec, Finder, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, reactElementPropType, arrayPropType, reactNodePropType, FinderResult, ObjectMember, ObjectSpec } from './Scraper';
 
 // Finding Components
 
@@ -12,25 +12,35 @@ xtest('ignore non react component classes', () => {
     .toStrictEqual([]);
 });
 
+// Prop Declarations
+
 test('find react component with direct props', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `export class TestC extends React.Component<{foo: string}, {}> {}`
-  );
+  ).toMatchObject({
+    name: null
+  });
 });
 
 test('find react component with aliased props', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `type Props = { foo: string };
      export class TestC extends React.Component<Props, {}> {}`
-  );
+  ).toMatchObject({
+    name: null // Only support names for non anonymous objects
+  });
 });
 
 test('find react component with interfaced props', () => {
-  expectSingleComponentInContent(
+  expectPropsOfSingleComponentInContent(
     `interface Props { foo: string };
      export class TestC extends React.Component<Props, {}> {}`
-  );
+  ).toMatchObject({
+    name: "Props"
+  });
 });
+
+// React Import
 
 test('find react component with differently imported react', () => {
   expectSingleComponentInContent(
@@ -38,6 +48,8 @@ test('find react component with differently imported react', () => {
      export class TestC extends Rrreact.Component<{}, {}> {}`
   );
 });
+
+// Re-export
 
 test('find re-exported components', () => {
   const project = new Project({
@@ -79,7 +91,7 @@ test('find react component name', () => {
 // Props
 
 test('support basic prop types', () => {
-  expectPropsOfSingleComponentInContent(
+  expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
       foo: string,
@@ -117,7 +129,7 @@ test('support basic prop types', () => {
 });
 
 test('note whether a prop is nullable', () => {
-  expectPropsOfSingleComponentInContent(
+  expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
       foo: string,
@@ -139,7 +151,7 @@ test('note whether a prop is nullable', () => {
 });
 
 test('support partial props', () => {
-  expectPropsOfSingleComponentInContent(
+  expectPropMembersOfSingleComponentInContent(
     `
     interface MyProps {
       fooPartial: string
@@ -155,7 +167,7 @@ test('support partial props', () => {
 });
 
 test('support event handlers', () => {
-  expectPropsOfSingleComponentInContent(
+  expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
       onClick: (event: React.MouseEvent<HTMLElement, MouseEvent>) => void,
@@ -173,7 +185,7 @@ test('support event handlers', () => {
 });
 
 test('support literal types', () => {
-  expectPropsOfSingleComponentInContent(
+  expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
       lit1: 1,
@@ -195,7 +207,7 @@ test('support literal types', () => {
 });
 
 test('support union', () => {
-  expectPropsOfSingleComponentInContent(
+  expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
       stringOrBoolean: string | false | true,
@@ -220,7 +232,7 @@ test('support union', () => {
 
 /*
 xtest('support object types', () => {
-  expectPropsOfSingleComponentInContent(
+  expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
       obj: { bar: number, baz?: string, qux: { quux: number } },
@@ -255,7 +267,7 @@ xtest('support object types', () => {
 */
 
 test('support array types', () => {
-  expectPropsOfSingleComponentInContent(
+  expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
       foo: string[],
@@ -269,7 +281,7 @@ test('support array types', () => {
 });
 
 xtest('support recursive types', () => {
-  expectPropsOfSingleComponentInContent(
+  expectPropMembersOfSingleComponentInContent(
     `
     type Foo = { foo?: Foo }
 
@@ -309,7 +321,20 @@ function expectSingleComponentInContent(content: string): jest.Matchers<Componen
   return expect(r.components[0]);
 }
 
-function expectPropsOfSingleComponentInContent(content: string): jest.Matchers<ObjectMember[]> {
+function expectPropsOfSingleComponentInContent(content: string): jest.Matchers<ObjectSpec> {
+  let r = findComponentsInContent(content);
+  expect(r.components.length).toBe(1);
+
+  let comp = r.components[0];
+  let propsRefNdx = comp.propsRefNdx;
+
+  let propsRef = r.refs[propsRefNdx];
+
+  expect(propsRef).not.toBeUndefined();
+  return expect(propsRef);
+}
+
+function expectPropMembersOfSingleComponentInContent(content: string): jest.Matchers<ObjectMember[]> {
   let r = findComponentsInContent(content);
   expect(r.components.length).toBe(1);
 
