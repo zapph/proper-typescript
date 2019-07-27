@@ -14,6 +14,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc-watch --onSuccess \"node dist/index.js\"",
+    "test": "npx jest",
     "test:watch": "tsc-watch --onSuccess \"npx jest\"",
     "start": "ts-node src/index.ts"
   },
