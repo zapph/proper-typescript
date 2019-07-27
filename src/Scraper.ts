@@ -142,10 +142,14 @@ export function findComponentsInSourceFile(
       let propTypeArg = baseType.getTypeArguments()[0];
 
       if (typeof propTypeArg !== "undefined") {
+        let classDecSym = classDec.getSymbolOrThrow();
+        let name = classDecSym.getName();
+        debugSymbol("Found react component", classDecSym);
+
         let propsRefIndex = storeRef(propTypeArg);
 
         let component: ComponentSpec = {
-          name: classDec.getSymbolOrThrow().getName(),
+          name,
           propsRefIndex
         };
 
@@ -196,6 +200,8 @@ export function findComponentsInSourceFile(
   function propertyToObjectMember(s: Symbol, reference: Node): ObjectMember {
     let name = s.getName();
     let typ = s.getTypeAtLocation(reference);
+
+    debugType(`checking property name=${name}`, typ);
     let propSpec = typeToPropSpec(typ, reference);
 
     return {
@@ -301,6 +307,65 @@ export function findComponentsInSourceFile(
 
 // Helpers
 
+function symToDebugString(sym: Symbol): string {
+  let name = sym.getName();
+
+  let decl = sym.getDeclarations()[0];
+  let declString: string;
+
+  if (typeof decl !== "undefined") {
+    let filePath = decl.getSourceFile().getFilePath();
+    let lineNumber = decl.getStartLineNumber();
+    let kind = decl.getKindName();
+    declString = `(Decl path=${filePath}, line=${lineNumber}, kind=${kind})`;
+  } else {
+    declString = "(No Declarations)"
+  }
+
+  return `name=${name} decl=${declString}`;
+}
+
+function typeToDebugString(typ: Type): string {
+  let symbol = typ.getSymbol();
+  let aliasSymbol = typ.getAliasSymbol();
+
+  let symbolKind: string;
+  let dsymbol: Symbol | undefined;
+
+  if (typeof symbol !== "undefined") {
+    symbolKind = "S";
+    dsymbol = symbol;
+  } else if (typeof aliasSymbol !== "undefined") {
+    symbolKind = "A";
+    dsymbol = aliasSymbol;
+  } else {
+    symbolKind = "NOSYMBOL";
+  }
+
+  let symbolText: string = "";
+  if (typeof dsymbol !== "undefined") {
+    symbolText = symToDebugString(dsymbol);
+  }
+
+  return `type=${typ.getText()}, symbolKind=${symbolKind}, symbol=(${symbolText})`;
+}
+
+function isDebugEnv(): boolean {
+  return process.env["DEBUG"] ? true : false;
+}
+
+function debugSymbol(prefix: string, sym: Symbol): void {
+  if (isDebugEnv()) {
+    console.debug(prefix + " " + symToDebugString(sym));
+  }
+}
+
+function debugType(prefix: string, typ: Type): void {
+  if (isDebugEnv()) {
+    console.debug(prefix + " " + typeToDebugString(typ));
+  }
+}
+
 function getConstraintTypeFromTypeParam(typ: Type): Type | undefined {
   return withTypeDecl(typ, (decl: Node) => {
     if (TypeGuards.isTypeParameterDeclaration(decl)) {
@@ -316,7 +381,6 @@ function getConstraintTypeFromTypeParam(typ: Type): Type | undefined {
 function isTypeVoid(typ: Type<ts.Type>): boolean {
   return (typ.getFlags() & ts.TypeFlags.VoidLike) !== 0;
 }
-
 
 function withTypeDecl<A>(typ: Type, f: (node: Node) => A): A | undefined {
   let sym = typ.getSymbol() || typ.getAliasSymbol();
