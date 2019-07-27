@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, reactElementPropType, arrayPropType, reactNodePropType, FinderResult, ObjectMember, ObjectSpec, RefPropType, findComponentsInSourceFile, refPropType } from './Scraper';
+import { ComponentSpec, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, reactElementPropType, arrayPropType, reactNodePropType, FinderResult, ObjectMember, ObjectSpec, RefPropType, findComponentsInSourceFile, refPropType, tuplePropType } from './Scraper';
 
 // Finding Components
 
@@ -228,6 +228,34 @@ test('support union', () => {
   }]);
 });
 
+test('support array types', () => {
+  expectPropMembersOfSingleComponentInContent(
+    `
+    interface Props {
+      foo: string[],
+    };
+
+    export class TestC extends React.Component<Props, {}> {}`
+  ).toMatchObject([{
+    name: "foo",
+    propType: arrayPropType(stringPropType),
+  }]);
+});
+
+test('support tuples', () => {
+  expectPropMembersOfSingleComponentInContent(
+    `
+    interface Props {
+      stringAndBoolean: [string, boolean]
+    };
+
+    export class TestC extends React.Component<Props, {}> {}`
+  ).toMatchObject([{
+    name: "stringAndBoolean",
+    // boolean ends up as literal true or false
+    propType: tuplePropType([stringPropType, booleanPropType])
+  }]);
+});
 
 test('support object types', () => {
   const r = findComponentsInContent(
@@ -312,20 +340,6 @@ test('reuse object refs', () => {
   expect(r.refs.length).toBe(1);
 })
 
-test('support array types', () => {
-  expectPropMembersOfSingleComponentInContent(
-    `
-    interface Props {
-      foo: string[],
-    };
-
-    export class TestC extends React.Component<Props, {}> {}`
-  ).toMatchObject([{
-    name: "foo",
-    propType: arrayPropType(stringPropType),
-  }]);
-});
-
 test('support recursive types', () => {
   const r = findComponentsInContent(
     `
@@ -363,6 +377,8 @@ test('support recursive types', () => {
     }]
   });
 });
+
+
 
 function findComponentsInContent(content: string): FinderResult {
   const project = new Project({

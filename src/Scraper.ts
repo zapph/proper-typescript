@@ -19,6 +19,7 @@ export type PropType =
   | RefPropType
   | PartialPropType
   | ArrayPropType
+  | TuplePropType
   | FnPropType
 
 export type AnyPropType = { kind: "any" }
@@ -78,6 +79,11 @@ export type ArrayPropType = { kind: "array", elementPropType: PropType }
 
 export function arrayPropType(elementPropType: PropType): PropType {
   return { kind: "array", elementPropType };
+}
+export type TuplePropType = { kind: "tuple", elements: PropType[] }
+
+export function tuplePropType(elements: PropType[]): PropType {
+  return { kind: "tuple", elements };
 }
 
 export type FnPropType = {
@@ -250,6 +256,10 @@ export function findComponentsInSourceFile(
     } else if (typ.isBooleanLiteral()) {
       // TODO look for a better way for this
       propType = literalPropType(typ.getText() === "true");
+    } else if (typ.isTuple()) {
+      let elementPropTypes = typ.getTupleElements()
+        .map((t) => typeToPropSpec(t, reference).propType);
+      propType = tuplePropType(elementPropTypes);
     } else if (typ.isArray()) {
       let pspec = typeToPropSpec(typ.getArrayElementTypeOrThrow(), reference);
       propType = arrayPropType(pspec.propType);
