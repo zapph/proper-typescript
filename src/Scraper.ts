@@ -3,160 +3,159 @@ import ts from "typescript";
 
 // PropTypes
 
-export type RefIndex = number
+export type RefIndex = number;
 
 export type PropType =
-  AnyPropType
-  | VoidPropType
-  | StringPropType
-  | NumberPropType
-  | BooleanPropType
-  | ReactElementPropType
-  | EventPropType
-  | ReactNodePropType
-  | LiteralPropType
-  | UnionPropType
-  | RefPropType
-  | PartialPropType
-  | ArrayPropType
-  | TuplePropType
-  | FnPropType
+  IAnyPropType
+  | IVoidPropType
+  | IStringPropType
+  | INumberPropType
+  | IBooleanPropType
+  | IReactElementPropType
+  | IEventPropType
+  | IReactNodePropType
+  | ILiteralPropType
+  | IUnionPropType
+  | IRefPropType
+  | IPartialPropType
+  | IArrayPropType
+  | ITuplePropType
+  | IFnPropType;
 
-export type AnyPropType = { kind: "any" }
+export interface IAnyPropType { kind: "any"; }
 export const anyPropType: PropType = { kind: "any" };
 
-export type VoidPropType = { kind: "void" }
-export const voidPropType: PropType = { kind: "void" }
+export interface IVoidPropType { kind: "void"; }
+export const voidPropType: PropType = { kind: "void" };
 
-export type StringPropType = { kind: "string" }
-export const stringPropType: PropType = { kind: "string" }
+export interface IStringPropType { kind: "string"; }
+export const stringPropType: PropType = { kind: "string" };
 
-export type NumberPropType = { kind: "number" }
-export const numberPropType: PropType = { kind: "number" }
+export interface INumberPropType { kind: "number"; }
+export const numberPropType: PropType = { kind: "number" };
 
-export type BooleanPropType = { kind: "boolean" }
-export const booleanPropType: PropType = { kind: "boolean" }
+export interface IBooleanPropType { kind: "boolean"; }
+export const booleanPropType: PropType = { kind: "boolean" };
 
-export type ReactElementPropType = { kind: "reactElement" }
-export const reactElementPropType: PropType = { kind: "reactElement" }
+export interface IReactElementPropType { kind: "reactElement"; }
+export const reactElementPropType: PropType = { kind: "reactElement" };
 
-export type ReactNodePropType = { kind: "reactNode" }
-export const reactNodePropType: PropType = { kind: "reactNode" }
+export interface IReactNodePropType { kind: "reactNode"; }
+export const reactNodePropType: PropType = { kind: "reactNode" };
 
-export type EventPropType = { kind: "event" }
-export const eventPropType: PropType = { kind: "event" }
+export interface IEventPropType { kind: "event"; }
+export const eventPropType: PropType = { kind: "event" };
 
-export type LiteralValue = string | number | ts.PseudoBigInt | boolean
+export type LiteralValue = string | number | ts.PseudoBigInt | boolean;
 
-export type LiteralPropType = { kind: "literal", value: LiteralValue }
+export interface ILiteralPropType { kind: "literal"; value: LiteralValue; }
 
 export function literalPropType(value: LiteralValue): PropType {
   return {
     kind: "literal",
-    value
+    value,
   };
 }
 
-export type RefPropType = { kind: "ref", refIndex: RefIndex }
+export interface IRefPropType { kind: "ref"; refIndex: RefIndex; }
 
 export function refPropType(refIndex: RefIndex): PropType {
   return { kind: "ref", refIndex };
 }
 
-export type PartialPropType = { kind: "partial", refIndex: RefIndex }
+export interface IPartialPropType { kind: "partial"; refIndex: RefIndex; }
 
 export function partialPropType(refIndex: RefIndex): PropType {
   return { kind: "partial", refIndex };
 }
 
-export type UnionPropType = { kind: "union", options: PropType[] }
+export interface IUnionPropType { kind: "union"; options: PropType[]; }
 
 export function unionPropType(options: PropType[]): PropType {
   return { kind: "union", options };
 }
 
-export type ArrayPropType = { kind: "array", elementPropType: PropType }
+export interface IArrayPropType { kind: "array"; elementPropType: PropType; }
 
 export function arrayPropType(elementPropType: PropType): PropType {
   return { kind: "array", elementPropType };
 }
-export type TuplePropType = { kind: "tuple", elements: PropType[] }
+export interface ITuplePropType { kind: "tuple"; elements: PropType[]; }
 
 export function tuplePropType(elements: PropType[]): PropType {
   return { kind: "tuple", elements };
 }
 
-export type FnPropType = {
-  kind: "fn",
-  argTypes: PropSpec[],
-  returnType: PropSpec
+export interface IFnPropType {
+  kind: "fn";
+  argTypes: IPropSpec[];
+  returnType: IPropSpec;
 }
 
-export function fnPropType(argTypes: PropSpec[], returnType: PropSpec): PropType {
+export function fnPropType(argTypes: IPropSpec[], returnType: IPropSpec): PropType {
   return { kind: "fn", argTypes, returnType };
 }
 
-// ObjectSpec, PropSpec, ComponentSpec
+// IObjectSpec, IPropSpec, IComponentSpec
 
-export type ObjectSpec = { name: string | null, members: ObjectMember[] }
-export type ObjectMember = { name: string, isNullable: boolean, propType: PropType }
+export interface IObjectSpec { name: string | null; members: IObjectMember[]; }
+export interface IObjectMember { name: string; isNullable: boolean; propType: PropType; }
 
-export function objectSpec(name: string | null, members: ObjectMember[]): ObjectSpec {
+export function objectSpec(name: string | null, members: IObjectMember[]): IObjectSpec {
   return { name, members };
 }
 
-
-export interface PropSpec {
-  propType: PropType,
-  isNullable: boolean
+export interface IPropSpec {
+  propType: PropType;
+  isNullable: boolean;
 }
 
-export interface ComponentSpec {
-  name: string,
-  propsRefIndex: number
+export interface IComponentSpec {
+  name: string;
+  propsRefIndex: number;
 }
 
 // Finder class
 
-export type FinderResult = {
-  components: ComponentSpec[],
-  refs: ObjectSpec[]
-};
+export interface IFinderResult {
+  components: IComponentSpec[];
+  refs: IObjectSpec[];
+}
 
-let knownSymbolPropTypes: { [name: string]: PropType } = {
-  "React.SyntheticEvent": eventPropType,
+const knownSymbolPropTypes: { [name: string]: PropType } = {
   "React.MouseEvent": eventPropType, // TODO make this generic
   "React.ReactElement": reactElementPropType,
-  "React.ReactNode": reactNodePropType
+  "React.ReactNode": reactNodePropType,
+  "React.SyntheticEvent": eventPropType,
 };
 
-let placeholderRef = objectSpec("__placeholder", []);
+const placeholderRef = objectSpec("__placeholder", []);
 
 export function findComponentsInSourceFile(
-  sourceFile: SourceFile
-): FinderResult {
-  let components: ComponentSpec[] = [];
-  let refs: ObjectSpec[] = [];
-  let refNdxMap: Map<Type, number> = new Map();
+  sourceFile: SourceFile,
+): IFinderResult {
+  const components: IComponentSpec[] = [];
+  const refs: IObjectSpec[] = [];
+  const refNdxMap: Map<Type, number> = new Map();
 
   function findComponentsInClass(
-    classDec: ClassDeclaration
+    classDec: ClassDeclaration,
   ): void {
-    let baseType = classDec.getBaseTypes().find(isTypeReactComponent);
+    const baseType = classDec.getBaseTypes().find(isTypeReactComponent);
 
     if (baseType) {
-      let propTypeArg = baseType.getTypeArguments()[0];
+      const propTypeArg = baseType.getTypeArguments()[0];
 
       if (typeof propTypeArg !== "undefined") {
-        let classDecSym = classDec.getSymbolOrThrow();
-        let name = classDecSym.getName();
+        const classDecSym = classDec.getSymbolOrThrow();
+        const name = classDecSym.getName();
         debugSymbol("Found react component", classDecSym);
 
-        let propsRefIndex = storeRef(propTypeArg);
+        const propsRefIndex = storeRef(propTypeArg);
 
-        let component: ComponentSpec = {
+        const component: IComponentSpec = {
           name,
-          propsRefIndex
+          propsRefIndex,
         };
 
         components.push(component);
@@ -165,27 +164,27 @@ export function findComponentsInSourceFile(
   }
 
   function storeRef(typ: Type): number {
-    let existingIndex = refNdxMap.get(typ);
+    const existingIndex = refNdxMap.get(typ);
     if (typeof existingIndex !== "undefined") {
       return existingIndex;
     }
 
     // We add a temporary placeholder to reserve
     // a spot in the refs array.
-    let ndx = refs.length;
+    const ndx = refs.length;
     refs.push(placeholderRef);
     refNdxMap.set(typ, ndx);
 
-    let sym = typ.getSymbolOrThrow();
-    let reference = sym.getDeclarations()[0];
+    const sym = typ.getSymbolOrThrow();
+    const reference = sym.getDeclarations()[0];
 
-    let members: ObjectMember[] = typ
+    const members: IObjectMember[] = typ
       .getProperties()
       .map((s) => propertyToObjectMember(s, reference));
 
-    let name = typ.isAnonymous() ? null : sym.getName();
+    const name = typ.isAnonymous() ? null : sym.getName();
 
-    let ref: ObjectSpec = objectSpec(name, members);
+    const ref: IObjectSpec = objectSpec(name, members);
 
     // Remove placeholder and replace with actual entry.
     refs[ndx] = ref;
@@ -194,7 +193,7 @@ export function findComponentsInSourceFile(
   }
 
   function isTypeReactComponent(t: Type): boolean {
-    let sym = t.getSymbol();
+    const sym = t.getSymbol();
 
     if (sym) {
       return sym.getFullyQualifiedName() === "React.Component";
@@ -203,44 +202,44 @@ export function findComponentsInSourceFile(
     }
   }
 
-  function propertyToObjectMember(s: Symbol, reference: Node): ObjectMember {
-    let name = s.getName();
-    let typ = s.getTypeAtLocation(reference);
+  function propertyToObjectMember(s: Symbol, reference: Node): IObjectMember {
+    const name = s.getName();
+    const typ = s.getTypeAtLocation(reference);
 
     debugType(`checking property name=${name}`, typ);
-    let propSpec = typeToPropSpec(typ, reference);
+    const propSpec = ItypeToPropSpec(typ, reference);
 
     return {
-      name,
       isNullable: propSpec.isNullable,
-      propType: propSpec.propType
+      name,
+      propType: propSpec.propType,
     };
   }
 
-  function typeToPropSpec(typ: Type, reference: Node): PropSpec {
-    let sym = typ.getSymbol() || typ.getAliasSymbol();
+  function ItypeToPropSpec(typ: Type, reference: Node): IPropSpec {
+    const sym = typ.getSymbol() || typ.getAliasSymbol();
 
-    let isNullable = typ.isNullable();
+    const isNullable = typ.isNullable();
 
     if (isNullable) {
       typ = typ.getNonNullableType();
     }
-    let knownPropType: PropType | undefined;
+    let knownPropTypeCand: PropType | undefined;
     if (typeof sym !== "undefined") {
-      knownPropType = knownSymbolPropTypes[sym.getFullyQualifiedName()];
+      knownPropTypeCand = knownSymbolPropTypes[sym.getFullyQualifiedName()];
     }
 
-    let fnPropType: PropType | undefined;
+    let fnPropTypeCand: PropType | undefined;
     if (typeof sym !== "undefined") {
-      fnPropType = symbolToFunctionPropType(sym, reference);
+      fnPropTypeCand = symbolToFunctionPropType(sym, reference);
     }
 
     let propType: PropType;
 
-    if (typeof knownPropType !== "undefined") {
-      propType = knownPropType;
-    } else if (typeof fnPropType !== "undefined") {
-      propType = fnPropType;
+    if (typeof knownPropTypeCand !== "undefined") {
+      propType = knownPropTypeCand;
+    } else if (typeof fnPropTypeCand !== "undefined") {
+      propType = fnPropTypeCand;
     } else if (isTypeVoid(typ)) {
       propType = voidPropType;
     } else if (typ.isString()) {
@@ -248,53 +247,53 @@ export function findComponentsInSourceFile(
     } else if (typ.isNumber()) {
       propType = numberPropType;
     } else if (typ.isBoolean()) {
-      propType = booleanPropType
+      propType = booleanPropType;
     } else if (typ.compilerType.isLiteral()) {
       // Does not inclue boolean -- see https://github.com/Microsoft/TypeScript/issues/26075
-      let value = typ.compilerType.value;
+      const value = typ.compilerType.value;
       propType = literalPropType(value);
     } else if (typ.isBooleanLiteral()) {
       // TODO look for a better way for this
       propType = literalPropType(typ.getText() === "true");
     } else if (typ.isTuple()) {
-      let elementPropTypes = typ.getTupleElements()
-        .map((t) => typeToPropSpec(t, reference).propType);
+      const elementPropTypes = typ.getTupleElements()
+        .map((t) => ItypeToPropSpec(t, reference).propType);
       propType = tuplePropType(elementPropTypes);
     } else if (typ.isArray()) {
-      let pspec = typeToPropSpec(typ.getArrayElementTypeOrThrow(), reference);
+      const pspec = ItypeToPropSpec(typ.getArrayElementTypeOrThrow(), reference);
       propType = arrayPropType(pspec.propType);
     } else if (typ.isUnion()) {
-      let options: PropType[] = typ.getUnionTypes().map((t) => typeToPropSpec(t, reference).propType);
+      const options: PropType[] = typ.getUnionTypes().map((t) => ItypeToPropSpec(t, reference).propType);
       propType = unionPropType(options);
     } else if (typ.isObject()) {
-      let refIndex = storeRef(typ);
+      const refIndex = storeRef(typ);
       propType = refPropType(refIndex);
     } else {
       propType = anyPropType;
     }
 
     return {
+      isNullable,
       propType,
-      isNullable
     };
   }
 
   function symbolToFunctionPropType(sym: Symbol, reference: Node): PropType | undefined {
     if (typeof sym !== "undefined") {
-      let decl = sym.getDeclarations()[0];
+      const decl = sym.getDeclarations()[0];
 
       if (typeof decl !== "undefined" && TypeGuards.isSignaturedDeclaration(decl)) {
-        let paramPropSpec = decl.getParameters().map((p) => {
+        const paramPropSpec = decl.getParameters().map((p) => {
           let typ = p.getType();
-          let baseType = getConstraintTypeFromTypeParam(typ);
+          const baseType = getConstraintTypeFromTypeParam(typ);
 
           if (typeof baseType !== "undefined") {
             typ = baseType;
           }
 
-          return typeToPropSpec(typ, reference);
+          return ItypeToPropSpec(typ, reference);
         });
-        let returnPropSpec = typeToPropSpec(decl.getReturnType(), reference);
+        const returnPropSpec = ItypeToPropSpec(decl.getReturnType(), reference);
 
         return fnPropType(paramPropSpec, returnPropSpec);
       }
@@ -318,26 +317,26 @@ export function findComponentsInSourceFile(
 // Helpers
 
 function symToDebugString(sym: Symbol): string {
-  let name = sym.getName();
+  const name = sym.getName();
 
-  let decl = sym.getDeclarations()[0];
+  const decl = sym.getDeclarations()[0];
   let declString: string;
 
   if (typeof decl !== "undefined") {
-    let filePath = decl.getSourceFile().getFilePath();
-    let lineNumber = decl.getStartLineNumber();
-    let kind = decl.getKindName();
+    const filePath = decl.getSourceFile().getFilePath();
+    const lineNumber = decl.getStartLineNumber();
+    const kind = decl.getKindName();
     declString = `(Decl path=${filePath}, line=${lineNumber}, kind=${kind})`;
   } else {
-    declString = "(No Declarations)"
+    declString = "(No Declarations)";
   }
 
   return `name=${name} decl=${declString}`;
 }
 
 function typeToDebugString(typ: Type): string {
-  let symbol = typ.getSymbol();
-  let aliasSymbol = typ.getAliasSymbol();
+  const symbol = typ.getSymbol();
+  const aliasSymbol = typ.getAliasSymbol();
 
   let symbolKind: string;
   let dsymbol: Symbol | undefined;
@@ -361,7 +360,7 @@ function typeToDebugString(typ: Type): string {
 }
 
 function isDebugEnv(): boolean {
-  return process.env["DEBUG"] ? true : false;
+  return process.env.DEBUG ? true : false;
 }
 
 function debugSymbol(prefix: string, sym: Symbol): void {
@@ -379,7 +378,7 @@ function debugType(prefix: string, typ: Type): void {
 function getConstraintTypeFromTypeParam(typ: Type): Type | undefined {
   return withTypeDecl(typ, (decl: Node) => {
     if (TypeGuards.isTypeParameterDeclaration(decl)) {
-      let constraint = decl.getConstraint();
+      const constraint = decl.getConstraint();
 
       if (constraint) {
         return constraint.getType();
@@ -393,9 +392,9 @@ function isTypeVoid(typ: Type<ts.Type>): boolean {
 }
 
 function withTypeDecl<A>(typ: Type, f: (node: Node) => A): A | undefined {
-  let sym = typ.getSymbol() || typ.getAliasSymbol();
+  const sym = typ.getSymbol() || typ.getAliasSymbol();
   if (typeof sym !== "undefined") {
-    let decl = sym.getDeclarations()[0];
+    const decl = sym.getDeclarations()[0];
     if (decl) {
       return f(decl);
     }

@@ -1,78 +1,98 @@
 import { Project } from "ts-morph";
-import { ComponentSpec, voidPropType, fnPropType, eventPropType, numberPropType, booleanPropType, stringPropType, literalPropType, unionPropType, reactElementPropType, arrayPropType, reactNodePropType, FinderResult, ObjectMember, ObjectSpec, RefPropType, findComponentsInSourceFile, refPropType, tuplePropType } from './Scraper';
+import {
+  arrayPropType,
+  booleanPropType,
+  eventPropType,
+  findComponentsInSourceFile,
+  fnPropType,
+  IComponentSpec,
+  IFinderResult,
+  IObjectMember,
+  IObjectSpec,
+  IRefPropType,
+  literalPropType,
+  numberPropType,
+  reactElementPropType,
+  reactNodePropType,
+  refPropType,
+  stringPropType,
+  tuplePropType,
+  unionPropType,
+  voidPropType,
+} from "./Scraper";
 
 // Finding Components
 
-test('ignore files without react components', () => {
-  expectComponentsInContent("").toStrictEqual([])
+test("ignore files without react components", () => {
+  expectComponentsInContent("").toStrictEqual([]);
 });
 
-test('ignore non react component classes', () => {
+test("ignore non react component classes", () => {
   expectComponentsInContent("class Foo; class Bar extends Foo")
     .toStrictEqual([]);
 });
 
 // Prop Declarations
 
-test('find react component with direct props', () => {
+test("find react component with direct props", () => {
   expectPropsOfSingleComponentInContent(
-    `export class TestC extends React.Component<{foo: string}, {}> {}`
+    `export class TestC extends React.Component<{foo: string}, {}> {}`,
   ).toMatchObject({
-    name: null
+    name: null,
   });
 });
 
-test('find react component with aliased props', () => {
+test("find react component with aliased props", () => {
   expectPropsOfSingleComponentInContent(
     `type Props = { foo: string };
-     export class TestC extends React.Component<Props, {}> {}`
+     export class TestC extends React.Component<Props, {}> {}`,
   ).toMatchObject({
-    name: null // Only support names for non anonymous objects
+    name: null, // Only support names for non anonymous objects
   });
 });
 
-test('find react component with interfaced props', () => {
+test("find react component with interfaced props", () => {
   expectPropsOfSingleComponentInContent(
     `interface Props { foo: string };
-     export class TestC extends React.Component<Props, {}> {}`
+     export class TestC extends React.Component<Props, {}> {}`,
   ).toMatchObject({
-    name: "Props"
+    name: "Props",
   });
 });
 
 // React Import
 
-test('find react component with differently imported react', () => {
+test("find react component with differently imported react", () => {
   expectSingleComponentInContent(
-    `import * as Rrreact from 'react';
-     export class TestC extends Rrreact.Component<{}, {}> {}`
+    `import * as Rrreact from "react";
+     export class TestC extends Rrreact.Component<{}, {}> {}`,
   );
 });
 
 // Re-export
 
-test('find re-exported components', () => {
+test("find re-exported components", () => {
   const project = new Project({
     compilerOptions: {
-      strictNullChecks: true
-    }
+      strictNullChecks: true,
+    },
   });
 
   project.createSourceFile(
     "test/foo/FooComponent.ts",
-    "export default class FooComponent extends React.Component<{foo: string}, {}> {}"
+    "export default class FooComponent extends React.Component<{foo: string}, {}> {}",
   );
 
   project.createSourceFile(
     "test/foo/index.ts",
-    `import FooComponent from './FooComponent';
+    `import FooComponent from "./FooComponent";
 
-     export default FooComponent;`
+     export default FooComponent;`,
   );
 
   const indexFile = project.createSourceFile(
     "test/index.tsx",
-    "export { default as FooComponent } from './foo'"
+    "export { default as FooComponent } from \"./foo\"",
   );
 
   expect(findComponentsInSourceFile(indexFile).components.length).toBe(1);
@@ -80,15 +100,15 @@ test('find re-exported components', () => {
 
 // Name
 
-test('find react component name', () => {
+test("find react component name", () => {
   expectSingleComponentInContent(
-    `export class TestC extends React.Component<{}, {}> {}`
+    `export class TestC extends React.Component<{}, {}> {}`,
   ).toMatchObject({ name: "TestC" });
 });
 
 // Props
 
-test('support basic prop types', () => {
+test("support basic prop types", () => {
   expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
@@ -101,7 +121,7 @@ test('support basic prop types', () => {
       mouseEvent: React.MouseEvent<Element, MouseEvent>,
     };
 
-    export class TestC extends React.Component<Props, {}> {}`
+    export class TestC extends React.Component<Props, {}> {}`,
   ).toMatchObject([{
     name: "foo",
     propType: stringPropType,
@@ -126,7 +146,7 @@ test('support basic prop types', () => {
   }]);
 });
 
-test('note whether a prop is nullable', () => {
+test("note whether a prop is nullable", () => {
   expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
@@ -135,20 +155,20 @@ test('note whether a prop is nullable', () => {
       baz?: string
     };
 
-    export class TestC extends React.Component<Props, {}> {}`
+    export class TestC extends React.Component<Props, {}> {}`,
   ).toMatchObject([{
-    name: "foo",
     isNullable: false,
+    name: "foo",
   }, {
+    isNullable: true,
     name: "bar",
-    isNullable: true,
   }, {
-    name: "baz",
     isNullable: true,
+    name: "baz",
   }]);
 });
 
-test('support partial props', () => {
+test("support partial props", () => {
   expectPropMembersOfSingleComponentInContent(
     `
     interface MyProps {
@@ -157,14 +177,14 @@ test('support partial props', () => {
 
     type Props = Partial<MyProps>;
 
-    export class TestC extends React.Component<Props, {}> {}`
+    export class TestC extends React.Component<Props, {}> {}`,
   ).toMatchObject([{
-    name: "fooPartial",
     isNullable: true,
+    name: "fooPartial",
   }]);
 });
 
-test('support event handlers', () => {
+test("support event handlers", () => {
   expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
@@ -172,17 +192,23 @@ test('support event handlers', () => {
       onClick2: React.MouseEventHandler<HTMLElement>
     };
 
-    export class TestC extends React.Component<Props, {}> {}`
+    export class TestC extends React.Component<Props, {}> {}`,
   ).toMatchObject([{
     name: "onClick",
-    propType: fnPropType([{ propType: eventPropType, isNullable: false }], { propType: voidPropType, isNullable: false })
+    propType: fnPropType([{
+      isNullable: false,
+      propType: eventPropType,
+    }], { propType: voidPropType, isNullable: false }),
   }, {
     name: "onClick2",
-    propType: fnPropType([{ propType: eventPropType, isNullable: false }], { propType: voidPropType, isNullable: false })
+    propType: fnPropType([{
+      isNullable: false,
+      propType: eventPropType,
+    }], { propType: voidPropType, isNullable: false }),
   }]);
 });
 
-test('support literal types', () => {
+test("support literal types", () => {
   expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
@@ -191,20 +217,20 @@ test('support literal types', () => {
       litTrue: true,
     };
 
-    export class TestC extends React.Component<Props, {}> {}`
+    export class TestC extends React.Component<Props, {}> {}`,
   ).toMatchObject([{
     name: "lit1",
-    propType: literalPropType(1)
+    propType: literalPropType(1),
   }, {
     name: "litFoo",
-    propType: literalPropType("foo")
+    propType: literalPropType("foo"),
   }, {
     name: "litTrue",
-    propType: literalPropType(true)
+    propType: literalPropType(true),
   }]);
 });
 
-test('support union', () => {
+test("support union", () => {
   expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
@@ -213,51 +239,62 @@ test('support union', () => {
       fooOrBarOrNumber: "foo" | "bar" | number,
     };
 
-    export class TestC extends React.Component<Props, {}> {}`
+    export class TestC extends React.Component<Props, {}> {}`,
   ).toMatchObject([{
     name: "stringOrBoolean",
     // boolean ends up as literal true or false
-    propType: unionPropType([stringPropType, literalPropType(false), literalPropType(true)])
+    propType: unionPropType([
+      stringPropType,
+      literalPropType(false),
+      literalPropType(true),
+    ]),
   }, {
     name: "fooOrOne",
-    propType: unionPropType([literalPropType("foo"), literalPropType(1)])
+    propType: unionPropType([
+      literalPropType("foo"),
+      literalPropType(1),
+    ]),
   }, {
     name: "fooOrBarOrNumber",
     // Manually switched
-    propType: unionPropType([numberPropType, literalPropType("foo"), literalPropType("bar")])
+    propType: unionPropType([
+      numberPropType,
+      literalPropType("foo"),
+      literalPropType("bar"),
+    ]),
   }]);
 });
 
-test('support array types', () => {
+test("support array types", () => {
   expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
       foo: string[],
     };
 
-    export class TestC extends React.Component<Props, {}> {}`
+    export class TestC extends React.Component<Props, {}> {}`,
   ).toMatchObject([{
     name: "foo",
     propType: arrayPropType(stringPropType),
   }]);
 });
 
-test('support tuples', () => {
+test("support tuples", () => {
   expectPropMembersOfSingleComponentInContent(
     `
     interface Props {
       stringAndBoolean: [string, boolean]
     };
 
-    export class TestC extends React.Component<Props, {}> {}`
+    export class TestC extends React.Component<Props, {}> {}`,
   ).toMatchObject([{
     name: "stringAndBoolean",
     // boolean ends up as literal true or false
-    propType: tuplePropType([stringPropType, booleanPropType])
+    propType: tuplePropType([stringPropType, booleanPropType]),
   }]);
 });
 
-test('support object types', () => {
+test("support object types", () => {
   const r = findComponentsInContent(
     `
     interface Props {
@@ -265,82 +302,82 @@ test('support object types', () => {
       empty: {}
     };
 
-    export class TestC extends React.Component<Props, {}> {}`
+    export class TestC extends React.Component<Props, {}> {}`,
   );
 
   expect(r.components.length).toBe(1);
-  let comp = r.components[0];
+  const comp = r.components[0];
 
-  let propsRefIndex = comp.propsRefIndex;
-  let propsRef = r.refs[propsRefIndex];
+  const propsRefIndex = comp.propsRefIndex;
+  const propsRef = r.refs[propsRefIndex];
 
   expect(propsRef).toMatchObject({
-    name: "Props",
     members: [{
+      isNullable: false,
       name: "obj",
-      isNullable: false,
-      propType: { kind: "ref" }
+      propType: { kind: "ref" },
     }, {
-      name: "empty",
       isNullable: false,
-      propType: { kind: "ref" }
-    }]
+      name: "empty",
+      propType: { kind: "ref" },
+    }],
+    name: "Props",
   });
 
-  let objRefIndex = (propsRef.members[0].propType as RefPropType).refIndex;
-  let objRef = r.refs[objRefIndex];
+  const objRefIndex = (propsRef.members[0].propType as IRefPropType).refIndex;
+  const objRef = r.refs[objRefIndex];
 
   expect(objRef).toMatchObject({
-    name: null,
     members: [{
+      isNullable: false,
       name: "bar",
-      isNullable: false,
-      propType: numberPropType
+      propType: numberPropType,
     }, {
-      name: "baz",
       isNullable: true,
-      propType: stringPropType
+      name: "baz",
+      propType: stringPropType,
     }, {
-      name: "qux",
       isNullable: false,
-      propType: { kind: "ref" }
-    }]
+      name: "qux",
+      propType: { kind: "ref" },
+    }],
+    name: null,
   });
 
-  let quxRefIndex = (objRef.members[2].propType as RefPropType).refIndex;
-  let quxRef = r.refs[quxRefIndex];
+  const quxRefIndex = (objRef.members[2].propType as IRefPropType).refIndex;
+  const quxRef = r.refs[quxRefIndex];
 
   expect(quxRef).toMatchObject({
-    name: null,
     members: [{
-      name: "quux",
       isNullable: false,
-      propType: numberPropType
-    }]
+      name: "quux",
+      propType: numberPropType,
+    }],
+    name: null,
   });
 
-  let emptyRefIndex = (propsRef.members[1].propType as RefPropType).refIndex;
-  let emptyRef = r.refs[emptyRefIndex];
+  const emptyRefIndex = (propsRef.members[1].propType as IRefPropType).refIndex;
+  const emptyRef = r.refs[emptyRefIndex];
 
   expect(emptyRef).toMatchObject({
+    members: [],
     name: null,
-    members: []
   });
 });
 
-test('reuse object refs', () => {
+test("reuse object refs", () => {
   const r = findComponentsInContent(
     `
     interface Props {};
 
     export class TestC1 extends React.Component<Props, {}> {}
-    export class TestC2 extends React.Component<Props, {}> {}`
+    export class TestC2 extends React.Component<Props, {}> {}`,
   );
 
   expect(r.refs.length).toBe(1);
-})
+});
 
-test('support recursive types', () => {
+test("support recursive types", () => {
   const r = findComponentsInContent(
     `
     type Foo = { foo?: Foo }
@@ -349,79 +386,77 @@ test('support recursive types', () => {
       foo: Foo,
     };
 
-    export class TestC extends React.Component<Props, {}> {}`
+   export class TestC extends React.Component<Props, {}> {}`,
   );
 
-  let comp = r.components[0];
+  const comp = r.components[0];
   expect(comp).not.toBeUndefined();
 
-  let propsRef = r.refs[comp.propsRefIndex];
+  const propsRef = r.refs[comp.propsRefIndex];
   expect(propsRef).toMatchObject({
-    name: "Props",
     members: [{
-      name: "foo",
       isNullable: false,
-      propType: { kind: "ref" }
-    }]
+      name: "foo",
+      propType: { kind: "ref" },
+    }],
+    name: "Props",
   });
 
-  let fooRefIndex = (propsRef.members[0].propType as RefPropType).refIndex;
-  let fooRef = r.refs[fooRefIndex];
+  const fooRefIndex = (propsRef.members[0].propType as IRefPropType).refIndex;
+  const fooRef = r.refs[fooRefIndex];
 
   expect(fooRef).toMatchObject({
-    name: null,
     members: [{
-      name: "foo",
       isNullable: true,
-      propType: refPropType(fooRefIndex)
-    }]
+      name: "foo",
+      propType: refPropType(fooRefIndex),
+    }],
+    name: null,
   });
 });
 
-
-
-function findComponentsInContent(content: string): FinderResult {
+function findComponentsInContent(content: string): IFinderResult {
   const project = new Project({
     compilerOptions: {
-      strictNullChecks: true
-    }
+      strictNullChecks: true,
+    },
   });
 
   const sourceFile = project.createSourceFile("test/MyClass.tsx", content);
   return findComponentsInSourceFile(sourceFile);
 }
 
-function expectComponentsInContent(content: string): jest.Matchers<ComponentSpec[]> {
+function expectComponentsInContent(content: string): jest.Matchers<IComponentSpec[]> {
   return expect(findComponentsInContent(content).components);
 }
 
-function expectSingleComponentInContent(content: string): jest.Matchers<ComponentSpec> {
-  let r = findComponentsInContent(content);
+function expectSingleComponentInContent(content: string): jest.Matchers<IComponentSpec> {
+  const r = findComponentsInContent(content);
   expect(r.components.length).toBe(1);
   return expect(r.components[0]);
 }
 
-function expectPropsOfSingleComponentInContent(content: string): jest.Matchers<ObjectSpec> {
-  let r = findComponentsInContent(content);
+function expectPropsOfSingleComponentInContent(content: string): jest.Matchers<IObjectSpec> {
+  const r = findComponentsInContent(content);
   expect(r.components.length).toBe(1);
 
-  let comp = r.components[0];
-  let propsRefIndex = comp.propsRefIndex;
+  const comp = r.components[0];
+  const propsRefIndex = comp.propsRefIndex;
 
-  let propsRef = r.refs[propsRefIndex];
+  const propsRef = r.refs[propsRefIndex];
 
   expect(propsRef).not.toBeUndefined();
   return expect(propsRef);
 }
 
-function expectPropMembersOfSingleComponentInContent(content: string): jest.Matchers<ObjectMember[]> {
-  let r = findComponentsInContent(content);
+function expectPropMembersOfSingleComponentInContent(content: string): jest.Matchers<IObjectMember[]> {
+  const r = findComponentsInContent(content);
   expect(r.components.length).toBe(1);
 
-  let comp = r.components[0];
-  let propsRefIndex = comp.propsRefIndex;
+  const comp = r.components[0];
+  const propsRefIndex = comp.propsRefIndex;
 
-  let propsRef = r.refs[propsRefIndex];
+  const propsRef = r.refs[propsRefIndex];
 
   expect(propsRef).not.toBeUndefined();
   return expect(propsRef.members);
